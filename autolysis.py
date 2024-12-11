@@ -1,10 +1,10 @@
 import os
 import sys
 import json
+import matplotlib.pyplot as plt
 import requests
 import chardet
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 from dotenv import load_dotenv
 
