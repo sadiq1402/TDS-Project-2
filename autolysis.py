@@ -108,115 +108,40 @@ class AutoLysis:
         except Exception as e:
             print(f"Error loading data: {e}")
 
-    # def analyze_data(self):
-    #     """Perform generic data analysis."""
-    #     if self.data is None:
-    #         print("Data not loaded.")
-    #         return None
-
-    #     try:
-    #         # Convert numpy types to native Python types for JSON serialization
-    #         def convert_to_native(val):
-    #             if hasattr(val, "item"):
-    #                 return val.item()
-    #             return val
-
-    #         analysis = {
-    #             "summary": {
-    #                 k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
-    #                 for k, v in self.data.describe(include="all").to_dict().items()
-    #             },
-    #             "missing_values": {
-    #                 k: convert_to_native(v)
-    #                 for k, v in self.data.isnull().sum().to_dict().items()
-    #             },
-    #             "correlation": (
-    #                 {
-    #                     k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
-    #                     for k, v in self.data.corr(numeric_only=True).to_dict().items()
-    #                 }
-    #                 if len(
-    #                     self.data.select_dtypes(include=["float64", "int64"]).columns
-    #                 )
-    #                 > 1
-    #                 else {}
-    #             ),
-    #         }
-    #         return analysis
-    #     except Exception as e:
-    #         print(f"Error analyzing data: {e}")
-    #         return None
     def analyze_data(self):
-        """Perform comprehensive data analysis."""
+        """Perform generic data analysis."""
         if self.data is None:
             print("Data not loaded.")
             return None
 
         try:
-            # Prepare a comprehensive analysis dictionary
+            # Convert numpy types to native Python types for JSON serialization
+            def convert_to_native(val):
+                if hasattr(val, "item"):
+                    return val.item()
+                return val
+
             analysis = {
-                "dataset_overview": {
-                    "total_rows": self.data.shape[0],
-                    "total_columns": self.data.shape[1],
-                    "columns": list(self.data.columns),
-                },
-                "column_types": {
-                    col: str(self.data[col].dtype) for col in self.data.columns
+                "summary": {
+                    k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
+                    for k, v in self.data.describe(include="all").to_dict().items()
                 },
                 "missing_values": {
-                    col: {
-                        "total_missing": self.data[col].isnull().sum(),
-                        "percent_missing": round(
-                            self.data[col].isnull().mean() * 100, 2
-                        ),
-                    }
-                    for col in self.data.columns
+                    k: convert_to_native(v)
+                    for k, v in self.data.isnull().sum().to_dict().items()
                 },
-                "summary_statistics": {},
-            }
-
-            # Numeric columns analysis
-            numeric_cols = self.data.select_dtypes(include=["int64", "float64"]).columns
-            for col in numeric_cols:
-                analysis["summary_statistics"][col] = {
-                    "mean": round(self.data[col].mean(), 2),
-                    "median": round(self.data[col].median(), 2),
-                    "std_dev": round(self.data[col].std(), 2),
-                    "min": round(self.data[col].min(), 2),
-                    "max": round(self.data[col].max(), 2),
-                    "skewness": round(self.data[col].skew(), 2),
-                    "kurtosis": round(self.data[col].kurtosis(), 2),
-                }
-
-            # Categorical columns analysis
-            categorical_cols = self.data.select_dtypes(
-                include=["object", "category"]
-            ).columns
-            for col in categorical_cols:
-                top_categories = self.data[col].value_counts().head(5)
-                analysis["summary_statistics"][col] = {
-                    "unique_values": self.data[col].nunique(),
-                    "most_frequent": {
-                        "value": top_categories.index.tolist(),
-                        "count": top_categories.values.tolist(),
-                    },
-                }
-
-            # Correlation for numeric columns (if more than one numeric column)
-            if len(numeric_cols) > 1:
-                try:
-                    correlation_matrix = self.data[numeric_cols].corr()
-                    analysis["correlation_matrix"] = {
-                        col: {
-                            inner_col: round(correlation_matrix.loc[col, inner_col], 2)
-                            for inner_col in numeric_cols
-                        }
-                        for col in numeric_cols
+                "correlation": (
+                    {
+                        k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
+                        for k, v in self.data.corr(numeric_only=True).to_dict().items()
                     }
-                except Exception as e:
-                    print(f"Correlation calculation error: {e}")
-                    analysis["correlation_matrix"] = "Could not calculate correlation"
-
+                    if len(
+                        self.data.select_dtypes(include=["float64", "int64"]).columns
+                    )
+                    > 1
+                    else {}
+                ),
+            }
             return analysis
         except Exception as e:
             print(f"Error analyzing data: {e}")
