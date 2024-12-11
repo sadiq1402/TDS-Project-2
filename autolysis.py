@@ -1,5 +1,52 @@
 import os
 import sys
+import subprocess
+import importlib.util
+
+
+def install_dependencies():
+    """Automatically install required dependencies with specific versions."""
+    dependencies = [
+        "python-dotenv==1.0.0",
+        "pandas==2.2.1",
+        "matplotlib==3.8.3",
+        "seaborn==0.13.2",
+        "requests==2.31.0",
+        "chardet==5.2.0",
+        "httpx==0.27.0",
+    ]
+
+    # Check and install missing or incorrect versions of dependencies
+    missing_deps = []
+    for dep in dependencies:
+        try:
+            # Split dependency name and version
+            package, version = dep.split("==")
+
+            # Check if package is installed
+            spec = importlib.util.find_spec(package.replace("-", "_"))
+            if spec is None:
+                missing_deps.append(dep)
+            else:
+                # If package is installed, check its version
+                package_module = __import__(package.replace("-", "_"))
+                installed_version = getattr(package_module, "__version__", None)
+
+                if installed_version != version:
+                    missing_deps.append(dep)
+
+        except Exception as e:
+            print(f"Error checking dependency {dep}: {e}")
+            missing_deps.append(dep)
+
+    if missing_deps:
+        print(f"Installing/Updating dependencies: {', '.join(missing_deps)}")
+        subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing_deps)
+
+
+# Install dependencies before importing other modules
+install_dependencies()
+
 import json
 import requests
 import chardet
