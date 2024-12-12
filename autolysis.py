@@ -1,68 +1,19 @@
+dependencies = [
+    "python-dotenv",
+    "matplotlib",
+    "requests",
+    "chardet",
+    "pandas",
+    "seaborn",
+]
+
 import os
 import sys
-import subprocess
-import importlib.util
-import shutil
-
-
-def install_dependencies():
-    """Automatically install required dependencies using uv."""
-    dependencies = [
-        "python-dotenv==1.0.0",
-        "pandas==2.2.1",
-        "matplotlib==3.8.3",
-        "seaborn==0.13.2",
-        "requests==2.31.0",
-        "chardet==5.2.0",
-        "httpx==0.27.0",
-    ]
-
-    # Check if uv is available
-    uv_path = shutil.which("uv")
-    pip_path = shutil.which("pip")
-
-    install_command = None
-    if uv_path:
-        install_command = [uv_path, "pip", "install"]
-    elif pip_path:
-        install_command = [sys.executable, "-m", "pip", "install"]
-    else:
-        print("Error: Neither uv nor pip found. Cannot install dependencies.")
-        sys.exit(1)
-
-    # Check and install missing or incorrect versions of dependencies
-    missing_deps = []
-    for dep in dependencies:
-        try:
-            # Split dependency name and version
-            package, version = dep.split("==")
-
-            # Check if package is installed
-            spec = importlib.util.find_spec(package.replace("-", "_"))
-            if spec is None:
-                missing_deps.append(dep)
-
-        except Exception as e:
-            print(f"Error checking dependency {dep}: {e}")
-            missing_deps.append(dep)
-
-    if missing_deps:
-        print(f"Installing dependencies: {', '.join(missing_deps)}")
-        try:
-            subprocess.check_call(install_command + missing_deps)
-        except subprocess.CalledProcessError:
-            print("Failed to install dependencies.")
-            sys.exit(1)
-
-
-# Install dependencies before importing other modules
-install_dependencies()
-
 import json
+import matplotlib.pyplot as plt
 import requests
 import chardet
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 from dotenv import load_dotenv
 
