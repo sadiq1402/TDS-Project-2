@@ -60,84 +60,40 @@ class AutoLysis:
             print(f"Error loading data: {e}")
 
     def analyze_data(self):
-        """Perform advanced and detailed data analysis."""
+        """Perform generic data analysis."""
         if self.data is None:
             print("Data not loaded.")
             return None
 
         try:
-
+            # Convert numpy types to native Python types for JSON serialization
             def convert_to_native(val):
                 if hasattr(val, "item"):
                     return val.item()
                 return val
 
-            summary_stats = self.data.describe(
-                include="all", datetime_is_numeric=True
-            ).to_dict()
-            summary = {
-                k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
-                for k, v in summary_stats.items()
-            }
-
-            missing_values = {
-                col: {
-                    "missing_count": int(self.data[col].isnull().sum()),
-                    "missing_percentage": round(
-                        (self.data[col].isnull().sum() / len(self.data)) * 100, 2
-                    ),
-                }
-                for col in self.data.columns
-            }
-
-            numeric_data = self.data.select_dtypes(include=["float64", "int64"])
-            if not numeric_data.empty:
-                correlations = numeric_data.corr().to_dict()
-                skewness = numeric_data.skew().to_dict()
-                kurtosis = numeric_data.kurt().to_dict()
-            else:
-                correlations = {}
-                skewness = {}
-                kurtosis = {}
-
-            categorical_data = self.data.select_dtypes(include=["object", "category"])
-            categorical_analysis = {
-                col: {
-                    "unique_values": self.data[col].nunique(),
-                    "most_frequent": (
-                        self.data[col].mode()[0]
-                        if not self.data[col].mode().empty
-                        else None
-                    ),
-                    "frequency": (
-                        int(self.data[col].value_counts().iloc[0])
-                        if not self.data[col].value_counts().empty
-                        else 0
-                    ),
-                }
-                for col in categorical_data.columns
-            }
-
-            overall_stats = {
-                "row_count": len(self.data),
-                "column_count": len(self.data.columns),
-                "numeric_columns": len(numeric_data.columns),
-                "categorical_columns": len(categorical_data.columns),
-            }
-
-            detailed_analysis = {
-                "overall_statistics": overall_stats,
-                "summary_statistics": summary,
-                "missing_values": missing_values,
-                "correlation_matrix": correlations,
-                "numeric_analysis": {
-                    "skewness": skewness,
-                    "kurtosis": kurtosis,
+            analysis = {
+                "summary": {
+                    k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
+                    for k, v in self.data.describe(include="all").to_dict().items()
                 },
-                "categorical_analysis": categorical_analysis,
+                "missing_values": {
+                    k: convert_to_native(v)
+                    for k, v in self.data.isnull().sum().to_dict().items()
+                },
+                "correlation": (
+                    {
+                        k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
+                        for k, v in self.data.corr(numeric_only=True).to_dict().items()
+                    }
+                    if len(
+                        self.data.select_dtypes(include=["float64", "int64"]).columns
+                    )
+                    > 1
+                    else {}
+                ),
             }
-
-            return detailed_analysis
+            return analysis
         except Exception as e:
             print(f"Error analyzing data: {e}")
             return None
