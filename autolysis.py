@@ -300,37 +300,93 @@ class AutoLysis:
 
             traceback.print_exc()
 
+    # def generate_story(self, analysis):
+    #     """Use the LLM to generate a story based on the analysis."""
+    #     if not analysis or not self.api_key:
+    #         print("Analysis data is not available or API key is missing.")
+    #         return
+
+    #     headers = {
+    #         "Content-Type": "application/json",
+    #         "Authorization": f"Bearer {self.api_key}",
+    #     }
+    #     messages = [
+    #         {
+    #             "role": "system",
+    #             "content": "You are an expert data analyst, proficient at storytelling and deriving actionable insights.",
+    #         },
+    #         {
+    #             "role": "user",
+    #             "content": (
+    #                 "I have performed an analysis on a dataset. "
+    #                 "The following is a detailed summary of my findings: "
+    #                 f"{json.dumps(analysis, indent=2)}. "
+    #                 "Using this information, craft a comprehensive narrative report highlighting key insights, "
+    #                 "significant trends, potential anomalies, and actionable recommendations. "
+    #                 "Ensure the tone is professional and suitable for presentation to stakeholders. "
+    #                 "Use markdown formatting, including headers, lists, and emphasis where appropriate."
+    #             ),
+    #         },
+    #     ]
+    #     payload = {
+    #         "model": "gpt-4o-mini",
+    #         "messages": messages,
+    #     }
+
+    #     try:
+    #         response = requests.post(self.api_url, headers=headers, json=payload)
+    #         if response.status_code == 200:
+    #             story = (
+    #                 response.json()
+    #                 .get("choices", [])[0]
+    #                 .get("message", {})
+    #                 .get("content", "")
+    #             )
+    #             output_dir = os.path.splitext(self.csv_file)[0]
+    #             os.makedirs(output_dir, exist_ok=True)
+    #             with open(os.path.join(output_dir, "README.md"), "w") as file:
+    #                 file.write(story)
+    #             print(f"Saved README.md to {output_dir}/README.md")
+    #         else:
+    #             print(
+    #                 f"Error generating story: {response.status_code}, {response.text}"
+    #             )
+    #     except Exception as e:
+    #         print(f"Error in API request: {e}")
+
     def generate_story(self, analysis):
-        """Use the LLM to generate a story based on the analysis."""
+        """Use the LLM to generate a story based on the analysis with efficient token usage."""
         if not analysis or not self.api_key:
             print("Analysis data is not available or API key is missing.")
             return
 
+        # Generate a concise summary for the prompt
+        summary = self._create_summary(analysis)
+
+        # Dynamic and reusable prompt template
+        prompt_template = (
+            "You are a professional data analyst skilled at deriving actionable insights.\n\n"
+            "Here is the dataset analysis summary:\n\n"
+            "{summary}\n\n"
+            "Please craft a professional report that:\n"
+            "- Highlights key trends and insights.\n"
+            "- Identifies anomalies or issues (e.g., missing values).\n"
+            "- Recommends actionable steps based on the analysis.\n\n"
+            "Use markdown formatting with sections, lists, and emphasis."
+        )
+        prompt = prompt_template.format(summary=summary)
+
+        # Prepare API request
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
         }
-        messages = [
-            {
-                "role": "system",
-                "content": "You are an expert data analyst, proficient at storytelling and deriving actionable insights.",
-            },
-            {
-                "role": "user",
-                "content": (
-                    "I have performed an analysis on a dataset. "
-                    "The following is a detailed summary of my findings: "
-                    f"{json.dumps(analysis, indent=2)}. "
-                    "Using this information, craft a comprehensive narrative report highlighting key insights, "
-                    "significant trends, potential anomalies, and actionable recommendations. "
-                    "Ensure the tone is professional and suitable for presentation to stakeholders. "
-                    "Use markdown formatting, including headers, lists, and emphasis where appropriate."
-                ),
-            },
-        ]
         payload = {
             "model": "gpt-4o-mini",
-            "messages": messages,
+            "messages": [
+                {"role": "system", "content": "You are an expert data analyst."},
+                {"role": "user", "content": prompt},
+            ],
         }
 
         try:
@@ -353,6 +409,40 @@ class AutoLysis:
                 )
         except Exception as e:
             print(f"Error in API request: {e}")
+
+    def _create_summary(self, analysis):
+        """Create a concise summary of the analysis."""
+        try:
+            summary_parts = []
+
+            # Include key points from the descriptive statistics
+            if "summary" in analysis:
+                summary_parts.append(
+                    f"Descriptive Summary:\n"
+                    f"- Total rows: {self.data.shape[0]}, Total columns: {self.data.shape[1]}\n"
+                    f"- Key statistics:\n"
+                    f"  {json.dumps({k: analysis['summary'][k] for k in list(analysis['summary'])[:3]}, indent=2)}"
+                )
+
+            # Include information about missing values
+            if "missing_values" in analysis:
+                missing = {k: v for k, v in analysis["missing_values"].items() if v > 0}
+                if missing:
+                    summary_parts.append(
+                        f"Columns with missing values:\n"
+                        f"{json.dumps(missing, indent=2)}"
+                    )
+
+            # Include correlations
+            if "correlation" in analysis and analysis["correlation"]:
+                summary_parts.append(
+                    "Key correlations detected among numeric features."
+                )
+
+            return "\n\n".join(summary_parts)
+        except Exception as e:
+            print(f"Error creating summary: {e}")
+            return "Analysis summary unavailable."
 
     def run(self):
         """Execute the workflow."""
