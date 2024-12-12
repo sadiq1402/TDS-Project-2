@@ -59,171 +59,87 @@ class AutoLysis:
         except Exception as e:
             print(f"Error loading data: {e}")
 
-        # def analyze_data(self):
-        #     """Perform generic data analysis."""
-        #     if self.data is None:
-        #         print("Data not loaded.")
-        #         return None
-
-        #     try:
-        #         # Convert numpy types to native Python types for JSON serialization
-        #         def convert_to_native(val):
-        #             if hasattr(val, "item"):
-        #                 return val.item()
-        #             return val
-
-        #         analysis = {
-        #             "summary": {
-        #                 k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
-        #                 for k, v in self.data.describe(include="all").to_dict().items()
-        #             },
-        #             "missing_values": {
-        #                 k: convert_to_native(v)
-        #                 for k, v in self.data.isnull().sum().to_dict().items()
-        #             },
-        #             "correlation": (
-        #                 {
-        #                     k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
-        #                     for k, v in self.data.corr(numeric_only=True).to_dict().items()
-        #                 }
-        #                 if len(
-        #                     self.data.select_dtypes(include=["float64", "int64"]).columns
-        #                 )
-        #                 > 1
-        #                 else {}
-        #             ),
-        #         }
-        #         return analysis
-        #     except Exception as e:
-        #         print(f"Error analyzing data: {e}")
-        #         return None
-
     def analyze_data(self):
-        """Perform advanced data analysis with comprehensive insights."""
+        """Perform advanced and detailed data analysis."""
         if self.data is None:
             print("Data not loaded.")
             return None
 
         try:
-            # Convert numpy types to native Python types for JSON serialization
+
             def convert_to_native(val):
                 if hasattr(val, "item"):
                     return val.item()
                 return val
 
-            # Basic statistical summary
-            summary = self.data.describe(include="all")
-
-            # Advanced analysis dictionary
-            analysis = {
-                # Basic statistics summary
-                "summary": {
-                    k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
-                    for k, v in summary.to_dict().items()
-                },
-                # Missing values analysis
-                "missing_values": {
-                    "total_missing": convert_to_native(self.data.isnull().sum().sum()),
-                    "missing_by_column": {
-                        k: convert_to_native(v)
-                        for k, v in self.data.isnull().sum().to_dict().items()
-                    },
-                    "missing_percentage": {
-                        k: convert_to_native(round(v / len(self.data) * 100, 2))
-                        for k, v in self.data.isnull().sum().to_dict().items()
-                    },
-                },
-                # Correlation analysis
-                "correlation": {},
-                # Data type information
-                "data_types": {
-                    k: str(v) for k, v in self.data.dtypes.to_dict().items()
-                },
-                # Advanced numeric column analysis
-                "numeric_analysis": {},
-                # Categorical column analysis
-                "categorical_analysis": {},
+            summary_stats = self.data.describe(
+                include="all", datetime_is_numeric=True
+            ).to_dict()
+            summary = {
+                k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
+                for k, v in summary_stats.items()
             }
 
-            # Correlation for numeric columns
-            numeric_cols = self.data.select_dtypes(include=["float64", "int64"]).columns
-            if len(numeric_cols) > 1:
-                corr_matrix = self.data[numeric_cols].corr()
-                analysis["correlation"] = {
-                    k: {k2: convert_to_native(v2) for k2, v2 in v.items()}
-                    for k, v in corr_matrix.to_dict().items()
-                }
-
-                # Identify highly correlated features
-                analysis["correlation"]["high_correlations"] = [
-                    {
-                        "pair": (col1, col2),
-                        "correlation": convert_to_native(corr_matrix.loc[col1, col2]),
-                    }
-                    for col1 in corr_matrix.columns
-                    for col2 in corr_matrix.columns
-                    if col1 != col2 and abs(corr_matrix.loc[col1, col2]) > 0.7
-                ]
-
-            # Detailed numeric column analysis
-            for col in numeric_cols:
-                col_data = self.data[col]
-                analysis["numeric_analysis"][col] = {
-                    "skewness": convert_to_native(col_data.skew()),
-                    "kurtosis": convert_to_native(col_data.kurtosis()),
-                    "iqr": convert_to_native(
-                        col_data.quantile(0.75) - col_data.quantile(0.25)
-                    ),
-                    "outliers": convert_to_native(
-                        len(
-                            col_data[
-                                (
-                                    col_data
-                                    < col_data.quantile(0.25)
-                                    - 1.5
-                                    * (
-                                        col_data.quantile(0.75)
-                                        - col_data.quantile(0.25)
-                                    )
-                                )
-                                | (
-                                    col_data
-                                    > col_data.quantile(0.75)
-                                    + 1.5
-                                    * (
-                                        col_data.quantile(0.75)
-                                        - col_data.quantile(0.25)
-                                    )
-                                )
-                            ]
-                        )
+            missing_values = {
+                col: {
+                    "missing_count": int(self.data[col].isnull().sum()),
+                    "missing_percentage": round(
+                        (self.data[col].isnull().sum() / len(self.data)) * 100, 2
                     ),
                 }
+                for col in self.data.columns
+            }
 
-            # Categorical column analysis
-            categorical_cols = self.data.select_dtypes(
-                include=["object", "category"]
-            ).columns
-            for col in categorical_cols:
-                value_counts = self.data[col].value_counts()
-                analysis["categorical_analysis"][col] = {
-                    "unique_values": convert_to_native(self.data[col].nunique()),
-                    "top_5_values": {
-                        str(k): convert_to_native(v)
-                        for k, v in value_counts.head().to_dict().items()
-                    },
-                    "value_distribution_percentage": {
-                        str(k): convert_to_native(round(v / len(self.data) * 100, 2))
-                        for k, v in value_counts.to_dict().items()
-                    },
+            numeric_data = self.data.select_dtypes(include=["float64", "int64"])
+            if not numeric_data.empty:
+                correlations = numeric_data.corr().to_dict()
+                skewness = numeric_data.skew().to_dict()
+                kurtosis = numeric_data.kurt().to_dict()
+            else:
+                correlations = {}
+                skewness = {}
+                kurtosis = {}
+
+            categorical_data = self.data.select_dtypes(include=["object", "category"])
+            categorical_analysis = {
+                col: {
+                    "unique_values": self.data[col].nunique(),
+                    "most_frequent": (
+                        self.data[col].mode()[0]
+                        if not self.data[col].mode().empty
+                        else None
+                    ),
+                    "frequency": (
+                        int(self.data[col].value_counts().iloc[0])
+                        if not self.data[col].value_counts().empty
+                        else 0
+                    ),
                 }
+                for col in categorical_data.columns
+            }
 
-            return analysis
+            overall_stats = {
+                "row_count": len(self.data),
+                "column_count": len(self.data.columns),
+                "numeric_columns": len(numeric_data.columns),
+                "categorical_columns": len(categorical_data.columns),
+            }
+
+            detailed_analysis = {
+                "overall_statistics": overall_stats,
+                "summary_statistics": summary,
+                "missing_values": missing_values,
+                "correlation_matrix": correlations,
+                "numeric_analysis": {
+                    "skewness": skewness,
+                    "kurtosis": kurtosis,
+                },
+                "categorical_analysis": categorical_analysis,
+            }
+
+            return detailed_analysis
         except Exception as e:
             print(f"Error analyzing data: {e}")
-            import traceback
-
-            traceback.print_exc()
             return None
 
     def visualize_data(self):
