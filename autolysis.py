@@ -232,14 +232,12 @@ class AutoLysis:
 
 
 if __name__ == "__main__":
-    # Check if a dataset is provided
+    import sys
+
     if len(sys.argv) != 2:
-        print("Usage: python autolysis.py <dataset.csv>")
+        print("Usage: uv run autolysis.py <dataset.csv>")
         sys.exit(1)
 
-    # Get the CSV file from command-line argument
     csv_file = sys.argv[1]
-
-    # Create an instance of AutoLysis and run the analysis
     auto_lysis = AutoLysis(csv_file)
     auto_lysis.run()
