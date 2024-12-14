@@ -6,6 +6,8 @@
 #   "matplotlib",
 #   "numpy",
 #   "scikit-learn"
+#   "requests",
+#   "json"
 # ]
 # ///
 
