@@ -324,204 +324,234 @@ class DataAnalyzer:
         plt.close()
         print(f"Visualizations saved to {visualization_path}")
 
+    # def generate_narrative(self, data_summary, analyses):
+    #     """Generate a comprehensive, deeply insightful narrative based on data analysis"""
+    #     try:
+    #         # Comprehensive Data Profiling
+    #         column_count = len(data_summary.get("columns", []))
+    #         total_rows = data_summary.get("total_rows", "N/A")
+
+    #         # Sophisticated Column Classification
+    #         column_types = data_summary.get("column_types", {})
+    #         numeric_cols = [
+    #             col
+    #             for col, dtype in column_types.items()
+    #             if "int" in str(dtype).lower() or "float" in str(dtype).lower()
+    #         ]
+    #         categorical_cols = [
+    #             col
+    #             for col, dtype in column_types.items()
+    #             if "object" in str(dtype).lower()
+    #         ]
+    #         datetime_cols = [
+    #             col
+    #             for col, dtype in column_types.items()
+    #             if "datetime" in str(dtype).lower()
+    #         ]
+
+    #         # Advanced Missing Data Analysis
+    #         missing_values = data_summary.get("missing_values", {})
+    #         missing_columns = [
+    #             col for col, count in missing_values.items() if count > 0
+    #         ]
+    #         missing_percentage = {
+    #             col: round(missing_values[col] / total_rows * 100, 2)
+    #             for col in missing_columns
+    #         }
+
+    #         # Correlation Deep Dive
+    #         correlation_insights = ""
+    #         correlation_details = []
+    #         if "correlation" in analyses and "matrix" in analyses["correlation"]:
+    #             correlation_matrix = analyses["correlation"]["matrix"]
+    #             corr_columns = analyses["correlation"]["columns"]
+
+    #             # Comprehensive correlation analysis
+    #             for i in range(len(corr_columns)):
+    #                 for j in range(i + 1, len(corr_columns)):
+    #                     correlation = correlation_matrix[i][j]
+    #                     if abs(correlation) > 0.5:  # Significant correlation threshold
+    #                         correlation_type = (
+    #                             "Strong Positive"
+    #                             if correlation > 0.8
+    #                             else (
+    #                                 "Moderate Positive"
+    #                                 if correlation > 0.5
+    #                                 else (
+    #                                     "Strong Negative"
+    #                                     if correlation < -0.8
+    #                                     else "Moderate Negative"
+    #                                 )
+    #                             )
+    #                         )
+    #                         correlation_details.append(
+    #                             {
+    #                                 "col1": corr_columns[i],
+    #                                 "col2": corr_columns[j],
+    #                                 "correlation": correlation,
+    #                                 "type": correlation_type,
+    #                             }
+    #                         )
+
+    #             # Sort correlations by absolute strength
+    #             correlation_details.sort(
+    #                 key=lambda x: abs(x["correlation"]), reverse=True
+    #             )
+
+    #             # Generate correlation narrative
+    #             correlation_insights = "### Correlation Analysis\n"
+    #             for detail in correlation_details[:5]:  # Top 5 correlations
+    #                 correlation_insights += (
+    #                     f"- **{detail['col1']}** and **{detail['col2']}**: "
+    #                     f"{detail['type']} correlation (r = {detail['correlation']:.2f})\n"
+    #                 )
+
+    #         # Clustering Insights
+    #         clustering_insights = ""
+    #         if "clustering" in analyses:
+    #             cluster_labels = analyses["clustering"]["labels"]
+    #             n_clusters = len(set(cluster_labels))
+    #             cluster_distribution = {}
+    #             for label in set(cluster_labels):
+    #                 cluster_distribution[label] = cluster_labels.count(label)
+
+    #             clustering_insights = "### Advanced Clustering Analysis\n"
+    #             clustering_insights += (
+    #                 f"- Identified {n_clusters} distinct data clusters\n"
+    #             )
+    #             clustering_insights += "- Cluster Distribution:\n"
+    #             for cluster, count in cluster_distribution.items():
+    #                 percentage = round(count / len(cluster_labels) * 100, 2)
+    #                 clustering_insights += (
+    #                     f"  * Cluster {cluster}: {count} data points ({percentage}%)\n"
+    #                 )
+
+    #         # PCA Advanced Analysis
+    #         pca_insights = ""
+    #         if "pca" in analyses:
+    #             explained_variance = analyses["pca"].get("explained_variance", [])
+    #             if explained_variance:
+    #                 pca_insights = "### Dimensionality Reduction (PCA) Insights\n"
+    #                 cumulative_variance = 0
+    #                 for i, variance in enumerate(explained_variance, 1):
+    #                     cumulative_variance += variance
+    #                     pca_insights += (
+    #                         f"- Principal Component {i}: "
+    #                         f"Explains {variance*100:.2f}% of variance\n"
+    #                     )
+    #                 pca_insights += f"- Cumulative Variance Explained: {cumulative_variance*100:.2f}%\n"
+
+    #         # Numeric Summary Deep Dive
+    #         numeric_summary_insights = ""
+    #         numeric_summary = data_summary.get("numeric_summary", {})
+    #         if numeric_summary:
+    #             numeric_summary_insights = "### Comprehensive Numeric Analysis\n"
+    #             for col, stats in numeric_summary.items():
+    #                 # Identify distributions and outlier potential
+    #                 iqr = stats["max"] - stats["min"]
+    #                 std_dev = stats["std"]
+    #                 outlier_potential = (
+    #                     "Low"
+    #                     if std_dev < iqr * 0.5
+    #                     else "Moderate" if std_dev < iqr else "High"
+    #                 )
+
+    #                 numeric_summary_insights += (
+    #                     f"#### {col} Statistical Profile\n"
+    #                     f"- **Central Tendency**: Mean = {stats['mean']:.2f}, Median = {stats['median']:.2f}\n"
+    #                     f"- **Variability**: Std Dev = {std_dev:.2f}, Range = {stats['min']} to {stats['max']}\n"
+    #                     f"- **Outlier Potential**: {outlier_potential}\n"
+    #                 )
+
+    #         # Final Narrative Composition
+    #         narrative = f"""# Comprehensive Data Analysis Report for {os.path.basename(self.csv_path)}
+
+    # ## Dataset Architectural Overview
+    # - **Total Records**: {total_rows}
+    # - **Columns**: {column_count}
+    # * Numeric Columns: {len(numeric_cols)}
+    # * Categorical Columns: {len(categorical_cols)}
+    # * Datetime Columns: {len(datetime_cols)}
+
+    # ## Data Integrity Assessment
+    # ### Missing Data Analysis
+    # {chr(10).join(f"- **{col}**: {missing_values[col]} missing entries ({missing_percentage[col]}%)" for col in missing_columns) if missing_columns else "- No missing values detected"}
+
+    # {numeric_summary_insights}
+
+    # {correlation_insights}
+
+    # {clustering_insights}
+
+    # {pca_insights}
+
+    # ## Strategic Insights and Recommendations
+    # - Automated analysis reveals complex data characteristics
+    # - Significant correlations and clustering patterns identified
+    # - Visualizations available in analysis_visualizations.png
+    # - Recommended next steps:
+    # 1. Validate key correlations with domain expertise
+    # 2. Investigate clusters for potential subgroup analysis
+    # 3. Consider feature engineering based on PCA insights
+    # 4. Address missing data if impactful to analysis
+
+    # **Interpretative Note**: Algorithmic insights provide a starting point. Domain-specific validation is crucial for comprehensive understanding.
+    # """
+
+    #         # Save and output
+    #         readme_path = os.path.join(self.output_folder, "README.md")
+    #         with open(readme_path, "w", encoding="utf-8") as f:
+    #             f.write(narrative)
+
+    #         print(f"Ultra-detailed narrative generated in {readme_path}")
+
+    #     except Exception as e:
+    #         error_message = f"""# Analysis Report Generation Failed
+
+    # ## Critical Error Details
+    # - Error: {str(e)}
+    # - Traceback: {traceback.format_exc()}
+
+    # ### Available Data Snapshot
+    # - Data Summary: {json.dumps(data_summary, indent=2)}
+    # - Analyses: {json.dumps(analyses, indent=2)}
+    # """
+    #         # Save error narrative
+    #         readme_path = os.path.join(self.output_folder, "README.md")
+    #         with open(readme_path, "w", encoding="utf-8") as f:
+    #             f.write(error_message)
+
+    #         print(f"Narrative generation encountered a critical error: {e}")
+
     def generate_narrative(self, data_summary, analyses):
         """Generate a comprehensive, deeply insightful narrative based on data analysis"""
         try:
-            # Comprehensive Data Profiling
-            column_count = len(data_summary.get("columns", []))
-            total_rows = data_summary.get("total_rows", "N/A")
-
-            # Sophisticated Column Classification
-            column_types = data_summary.get("column_types", {})
-            numeric_cols = [
-                col
-                for col, dtype in column_types.items()
-                if "int" in str(dtype).lower() or "float" in str(dtype).lower()
-            ]
-            categorical_cols = [
-                col
-                for col, dtype in column_types.items()
-                if "object" in str(dtype).lower()
-            ]
-            datetime_cols = [
-                col
-                for col, dtype in column_types.items()
-                if "datetime" in str(dtype).lower()
-            ]
-
-            # Advanced Missing Data Analysis
-            missing_values = data_summary.get("missing_values", {})
-            missing_columns = [
-                col for col, count in missing_values.items() if count > 0
-            ]
-            missing_percentage = {
-                col: round(missing_values[col] / total_rows * 100, 2)
-                for col in missing_columns
+            prompt = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a data analyst assistant. Generate a clear, structured, and insight-driven narrative based on the provided data summary and analysis results."
+                            " The narrative should be organized in sections: Data Description, Key Observations, Insights, and Implications."
+                            " Use Markdown for formatting with appropriate headings and bullet points. Integrate analytical findings and emphasize significant observations."
+                            " Ensure that each visualization is referenced where relevant, explaining its context and importance."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {
+                                "data_summary": data_summary,
+                                "analyses": analyses,
+                            }
+                        ),
+                    },
+                ],
             }
 
-            # Correlation Deep Dive
-            correlation_insights = ""
-            correlation_details = []
-            if "correlation" in analyses and "matrix" in analyses["correlation"]:
-                correlation_matrix = analyses["correlation"]["matrix"]
-                corr_columns = analyses["correlation"]["columns"]
-
-                # Comprehensive correlation analysis
-                for i in range(len(corr_columns)):
-                    for j in range(i + 1, len(corr_columns)):
-                        correlation = correlation_matrix[i][j]
-                        if abs(correlation) > 0.5:  # Significant correlation threshold
-                            correlation_type = (
-                                "Strong Positive"
-                                if correlation > 0.8
-                                else (
-                                    "Moderate Positive"
-                                    if correlation > 0.5
-                                    else (
-                                        "Strong Negative"
-                                        if correlation < -0.8
-                                        else "Moderate Negative"
-                                    )
-                                )
-                            )
-                            correlation_details.append(
-                                {
-                                    "col1": corr_columns[i],
-                                    "col2": corr_columns[j],
-                                    "correlation": correlation,
-                                    "type": correlation_type,
-                                }
-                            )
-
-                # Sort correlations by absolute strength
-                correlation_details.sort(
-                    key=lambda x: abs(x["correlation"]), reverse=True
-                )
-
-                # Generate correlation narrative
-                correlation_insights = "### Correlation Analysis\n"
-                for detail in correlation_details[:5]:  # Top 5 correlations
-                    correlation_insights += (
-                        f"- **{detail['col1']}** and **{detail['col2']}**: "
-                        f"{detail['type']} correlation (r = {detail['correlation']:.2f})\n"
-                    )
-
-            # Clustering Insights
-            clustering_insights = ""
-            if "clustering" in analyses:
-                cluster_labels = analyses["clustering"]["labels"]
-                n_clusters = len(set(cluster_labels))
-                cluster_distribution = {}
-                for label in set(cluster_labels):
-                    cluster_distribution[label] = cluster_labels.count(label)
-
-                clustering_insights = "### Advanced Clustering Analysis\n"
-                clustering_insights += (
-                    f"- Identified {n_clusters} distinct data clusters\n"
-                )
-                clustering_insights += "- Cluster Distribution:\n"
-                for cluster, count in cluster_distribution.items():
-                    percentage = round(count / len(cluster_labels) * 100, 2)
-                    clustering_insights += (
-                        f"  * Cluster {cluster}: {count} data points ({percentage}%)\n"
-                    )
-
-            # PCA Advanced Analysis
-            pca_insights = ""
-            if "pca" in analyses:
-                explained_variance = analyses["pca"].get("explained_variance", [])
-                if explained_variance:
-                    pca_insights = "### Dimensionality Reduction (PCA) Insights\n"
-                    cumulative_variance = 0
-                    for i, variance in enumerate(explained_variance, 1):
-                        cumulative_variance += variance
-                        pca_insights += (
-                            f"- Principal Component {i}: "
-                            f"Explains {variance*100:.2f}% of variance\n"
-                        )
-                    pca_insights += f"- Cumulative Variance Explained: {cumulative_variance*100:.2f}%\n"
-
-            # Numeric Summary Deep Dive
-            numeric_summary_insights = ""
-            numeric_summary = data_summary.get("numeric_summary", {})
-            if numeric_summary:
-                numeric_summary_insights = "### Comprehensive Numeric Analysis\n"
-                for col, stats in numeric_summary.items():
-                    # Identify distributions and outlier potential
-                    iqr = stats["max"] - stats["min"]
-                    std_dev = stats["std"]
-                    outlier_potential = (
-                        "Low"
-                        if std_dev < iqr * 0.5
-                        else "Moderate" if std_dev < iqr else "High"
-                    )
-
-                    numeric_summary_insights += (
-                        f"#### {col} Statistical Profile\n"
-                        f"- **Central Tendency**: Mean = {stats['mean']:.2f}, Median = {stats['median']:.2f}\n"
-                        f"- **Variability**: Std Dev = {std_dev:.2f}, Range = {stats['min']} to {stats['max']}\n"
-                        f"- **Outlier Potential**: {outlier_potential}\n"
-                    )
-
-            # Final Narrative Composition
-            narrative = f"""# Comprehensive Data Analysis Report for {os.path.basename(self.csv_path)}
-
-    ## Dataset Architectural Overview
-    - **Total Records**: {total_rows}
-    - **Columns**: {column_count}
-    * Numeric Columns: {len(numeric_cols)}
-    * Categorical Columns: {len(categorical_cols)}
-    * Datetime Columns: {len(datetime_cols)}
-
-    ## Data Integrity Assessment
-    ### Missing Data Analysis
-    {chr(10).join(f"- **{col}**: {missing_values[col]} missing entries ({missing_percentage[col]}%)" for col in missing_columns) if missing_columns else "- No missing values detected"}
-
-    {numeric_summary_insights}
-
-    {correlation_insights}
-
-    {clustering_insights}
-
-    {pca_insights}
-
-    ## Strategic Insights and Recommendations
-    - Automated analysis reveals complex data characteristics
-    - Significant correlations and clustering patterns identified
-    - Visualizations available in analysis_visualizations.png
-    - Recommended next steps:
-    1. Validate key correlations with domain expertise
-    2. Investigate clusters for potential subgroup analysis
-    3. Consider feature engineering based on PCA insights
-    4. Address missing data if impactful to analysis
-
-    **Interpretative Note**: Algorithmic insights provide a starting point. Domain-specific validation is crucial for comprehensive understanding.
-    """
-
-            # Save and output
-            readme_path = os.path.join(self.output_folder, "README.md")
-            with open(readme_path, "w", encoding="utf-8") as f:
-                f.write(narrative)
-
-            print(f"Ultra-detailed narrative generated in {readme_path}")
-
         except Exception as e:
-            error_message = f"""# Analysis Report Generation Failed
-
-    ## Critical Error Details
-    - Error: {str(e)}
-    - Traceback: {traceback.format_exc()}
-
-    ### Available Data Snapshot
-    - Data Summary: {json.dumps(data_summary, indent=2)}
-    - Analyses: {json.dumps(analyses, indent=2)}
-    """
-            # Save error narrative
-            readme_path = os.path.join(self.output_folder, "README.md")
-            with open(readme_path, "w", encoding="utf-8") as f:
-                f.write(error_message)
-
-            print(f"Narrative generation encountered a critical error: {e}")
+            return f"Error generating narrative prompt: {e}"
 
 
 def main(csv_path):
