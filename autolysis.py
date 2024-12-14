@@ -154,15 +154,75 @@ class DataAnalyzer:
 
         return analyses
 
+    # def generate_visualizations(self, analyses):
+    #     """Create visualizations with error handling"""
+    #     plt.figure(figsize=(15, 5))
+    #     plt.subplots_adjust(wspace=0.3)
+
+    #     # Correlation Heatmap
+    #     try:
+    #         if "correlation" in analyses:
+    #             plt.subplot(131)
+    #             corr_matrix = np.array(analyses["correlation"]["matrix"])
+    #             sns.heatmap(
+    #                 corr_matrix,
+    #                 annot=True,
+    #                 cmap="coolwarm",
+    #                 linewidths=0.5,
+    #                 xticklabels=analyses["correlation"]["columns"],
+    #                 yticklabels=analyses["correlation"]["columns"],
+    #             )
+    #             plt.title("Correlation Heatmap")
+    #     except Exception as e:
+    #         print(f"Correlation visualization error: {e}")
+
+    #     # Clustering Visualization
+    #     try:
+    #         if "clustering" in analyses:
+    #             plt.subplot(132)
+    #             numeric_data = self.df.select_dtypes(include=[np.number])
+    #             scaler = StandardScaler()
+    #             scaled_data = scaler.fit_transform(numeric_data)
+    #             plt.scatter(
+    #                 scaled_data[:, 0],
+    #                 scaled_data[:, 1],
+    #                 c=analyses["clustering"]["labels"],
+    #                 cmap="viridis",
+    #             )
+    #             plt.title("Clustering Visualization")
+    #     except Exception as e:
+    #         print(f"Clustering visualization error: {e}")
+
+    #     # PCA Visualization
+    #     try:
+    #         if "pca" in analyses:
+    #             plt.subplot(133)
+    #             pca_result = np.array(analyses["pca"]["components"])
+    #             plt.scatter(pca_result[:, 0], pca_result[:, 1])
+    #             plt.title("PCA Visualization")
+    #             if "explained_variance" in analyses["pca"]:
+    #                 var = analyses["pca"]["explained_variance"]
+    #                 plt.xlabel(f"PC1 ({var[0]:.2%})")
+    #                 plt.ylabel(f"PC2 ({var[1]:.2%})")
+    #     except Exception as e:
+    #         print(f"PCA visualization error: {e}")
+
+    #     # Save the visualization in the output folder
+    #     visualization_path = os.path.join(
+    #         self.output_folder, "analysis_visualizations.png"
+    #     )
+    #     plt.tight_layout()
+    #     plt.savefig(visualization_path, dpi=300)
+    #     plt.close()
     def generate_visualizations(self, analyses):
-        """Create visualizations with error handling"""
-        plt.figure(figsize=(15, 5))
-        plt.subplots_adjust(wspace=0.3)
+        """Create comprehensive visualizations with enhanced insights"""
+        plt.figure(figsize=(20, 10))
+        plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
         # Correlation Heatmap
         try:
             if "correlation" in analyses:
-                plt.subplot(131)
+                plt.subplot(221)
                 corr_matrix = np.array(analyses["correlation"]["matrix"])
                 sns.heatmap(
                     corr_matrix,
@@ -171,106 +231,98 @@ class DataAnalyzer:
                     linewidths=0.5,
                     xticklabels=analyses["correlation"]["columns"],
                     yticklabels=analyses["correlation"]["columns"],
+                    fmt=".2f",
                 )
                 plt.title("Correlation Heatmap")
         except Exception as e:
-            print(f"Correlation visualization error: {e}")
+            print(f"Error generating correlation heatmap: {e}")
 
-        # Clustering Visualization
+        # Clustering Visualization with Centroids
         try:
             if "clustering" in analyses:
-                plt.subplot(132)
+                plt.subplot(222)
                 numeric_data = self.df.select_dtypes(include=[np.number])
                 scaler = StandardScaler()
                 scaled_data = scaler.fit_transform(numeric_data)
-                plt.scatter(
-                    scaled_data[:, 0],
-                    scaled_data[:, 1],
-                    c=analyses["clustering"]["labels"],
-                    cmap="viridis",
-                )
-                plt.title("Clustering Visualization")
-        except Exception as e:
-            print(f"Clustering visualization error: {e}")
 
-        # PCA Visualization
+                cluster_labels = np.array(analyses["clustering"]["labels"])
+                unique_labels = set(cluster_labels)
+
+                for label in unique_labels:
+                    cluster_points = scaled_data[cluster_labels == label]
+                    plt.scatter(
+                        cluster_points[:, 0],
+                        cluster_points[:, 1],
+                        label=f"Cluster {label}",
+                        alpha=0.6,
+                    )
+
+                # Plot cluster centroids if available
+                kmeans = KMeans(n_clusters=len(unique_labels), random_state=42)
+                kmeans.fit(scaled_data)
+                centroids = kmeans.cluster_centers_
+                plt.scatter(
+                    centroids[:, 0],
+                    centroids[:, 1],
+                    s=200,
+                    c="black",
+                    marker="X",
+                    label="Centroids",
+                )
+
+                plt.title("Cluster Analysis with Centroids")
+                plt.legend()
+        except Exception as e:
+            print(f"Error generating clustering visualization: {e}")
+
+        # PCA Scatter Plot
         try:
             if "pca" in analyses:
-                plt.subplot(133)
+                plt.subplot(223)
                 pca_result = np.array(analyses["pca"]["components"])
-                plt.scatter(pca_result[:, 0], pca_result[:, 1])
-                plt.title("PCA Visualization")
-                if "explained_variance" in analyses["pca"]:
-                    var = analyses["pca"]["explained_variance"]
-                    plt.xlabel(f"PC1 ({var[0]:.2%})")
-                    plt.ylabel(f"PC2 ({var[1]:.2%})")
-        except Exception as e:
-            print(f"PCA visualization error: {e}")
+                plt.scatter(
+                    pca_result[:, 0],
+                    pca_result[:, 1],
+                    alpha=0.6,
+                    c="blue",
+                    label="Data",
+                )
 
-        # Save the visualization in the output folder
+                if "explained_variance" in analyses["pca"]:
+                    explained_var = analyses["pca"]["explained_variance"]
+                    plt.xlabel(f"PC1 ({explained_var[0]:.2%})")
+                    plt.ylabel(f"PC2 ({explained_var[1]:.2%})")
+
+                plt.title("PCA Scatter Plot")
+                plt.legend()
+        except Exception as e:
+            print(f"Error generating PCA visualization: {e}")
+
+        # Distribution Plots
+        try:
+            numeric_data = self.df.select_dtypes(include=[np.number])
+            if not numeric_data.empty:
+                plt.subplot(224)
+                for col in numeric_data.columns[:4]:  # Limit to the first 4 columns
+                    sns.kdeplot(
+                        numeric_data[col],
+                        label=col,
+                        fill=True,
+                        alpha=0.5,
+                    )
+                plt.title("Distribution of Key Numeric Features")
+                plt.legend()
+        except Exception as e:
+            print(f"Error generating distribution plots: {e}")
+
+        # Save the visualization as a single PNG file
         visualization_path = os.path.join(
             self.output_folder, "analysis_visualizations.png"
         )
         plt.tight_layout()
         plt.savefig(visualization_path, dpi=300)
         plt.close()
-
-    # def generate_narrative(self, data_summary, analyses):
-    #     """Generate a narrative based on data analysis"""
-    #     try:
-    #         # Create a markdown narrative based on available data
-    #         narrative = f"""# Data Analysis Report for {os.path.basename(self.csv_path)}
-
-    #         ## Dataset Overview
-    #         - **Total Rows**: {data_summary.get('total_rows', 'N/A')}
-    #         - **Columns**: {', '.join(data_summary.get('columns', []))}
-
-    #         ## Data Composition
-    #         ### Column Types
-    #         {json.dumps(data_summary.get('column_types', {}), indent=2)}
-
-    #         ### Missing Values
-    #         {json.dumps(data_summary.get('missing_values', {}), indent=2)}
-
-    #         ## Analysis Insights
-    #         ### Numeric Summary
-    #         {json.dumps(data_summary.get('numeric_summary', {}), indent=2)}
-
-    #         ### Analysis Results
-    #         {json.dumps(analyses, indent=2)}
-
-    #         ## Key Observations
-    #         - This report provides an automated analysis of the dataset.
-    #         - Visualizations are available in the accompanying PNG file.
-    #         - For detailed insights, please review the statistical summaries.
-    #         """
-
-    #         # Save narrative in the output folder
-    #         readme_path = os.path.join(self.output_folder, "README.md")
-    #         with open(readme_path, "w", encoding="utf-8") as f:
-    #             f.write(narrative)
-
-    #         print(f"Narrative generated in {readme_path}")
-
-    #     except Exception as e:
-    #         error_message = f"""# Analysis Report
-
-    #         ## Error Generating Narrative
-
-    #         An error occurred during narrative generation:
-    #         ### Data Summary
-    #         {json.dumps(data_summary, indent=2)}
-
-    #         ### Analyses
-    #         {json.dumps(analyses, indent=2)}
-    #         """
-
-    #         # Save error narrative in the output folder
-    #         readme_path = os.path.join(self.output_folder, "README.md")
-    #         with open(readme_path, "w", encoding="utf-8") as f:
-    #             f.write(error_message)
-
-    #         print(f"Narrative generation failed: {e}")
+        print(f"Visualizations saved to {visualization_path}")
 
     def generate_narrative(self, data_summary, analyses):
         """Generate a comprehensive, deeply insightful narrative based on data analysis"""
