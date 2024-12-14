@@ -146,32 +146,63 @@ class DataAnalyzer:
             print(f"Error calling LLM: {e}")
             return "Error generating response."
 
-    def visualize_data(self):
+    def generate_visualization(self):
         print("Generating visualizations...")
 
+        visualization_files = []
+
         # Correlation Matrix Heatmap
-        heatmap_file = os.path.join(self.output_dir, "correlation_matrix.png")
-        if not self.df.empty:
-            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-            if len(numeric_cols) > 1:
-                plt.figure(figsize=(10, 8))
-                sns.heatmap(
-                    self.df[numeric_cols].corr(),
-                    annot=True,
-                    cmap="coolwarm",
-                    fmt=".2f",
-                    linewidths=0.5,
-                )
-                plt.title("Correlation Matrix")
-                plt.savefig(heatmap_file)
-                plt.close()
-        else:
-            heatmap_file = None
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 1:
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(
+                self.df[numeric_cols].corr(),
+                annot=True,
+                cmap="coolwarm",
+                fmt=".2f",
+                linewidths=0.5,
+            )
+            plt.title("Correlation Matrix")
+            plt.xlabel("Features")
+            plt.ylabel("Features")
+            heatmap_file = os.path.join(self.output_dir, "correlation_matrix.png")
+            plt.savefig(heatmap_file)
+            plt.close()
+            visualization_files.append(heatmap_file)
+
+        # Histogram for Numeric Columns
+        for col in numeric_cols:
+            plt.figure(figsize=(8, 6))
+            sns.histplot(self.df[col], kde=True, color="skyblue")
+            plt.title(f"Distribution of {col}")
+            plt.xlabel(col)
+            plt.ylabel("Frequency")
+            hist_file = os.path.join(self.output_dir, f"{col}_histogram.png")
+            plt.savefig(hist_file)
+            plt.close()
+            visualization_files.append(hist_file)
+
+        # Scatter Plot for First Two Numeric Columns
+        if len(numeric_cols) > 1:
+            plt.figure(figsize=(8, 6))
+            plt.scatter(
+                self.df[numeric_cols[0]],
+                self.df[numeric_cols[1]],
+                alpha=0.7,
+                color="purple",
+            )
+            plt.title(f"Scatter Plot: {numeric_cols[0]} vs {numeric_cols[1]}")
+            plt.xlabel(numeric_cols[0])
+            plt.ylabel(numeric_cols[1])
+            scatter_file = os.path.join(self.output_dir, "scatter_plot.png")
+            plt.savefig(scatter_file)
+            plt.close()
+            visualization_files.append(scatter_file)
 
         print("Visualizations generated.")
-        return heatmap_file
+        return visualization_files
 
-    def create_readme(self, heatmap_file):
+    def create_readme(self, visualization_files):
         print("Creating README file...")
         readme_file = os.path.join(self.output_dir, "README.md")
         try:
@@ -192,8 +223,8 @@ class DataAnalyzer:
 
                 # Visualizations
                 f.write("## Visualizations\n")
-                if heatmap_file:
-                    f.write(f"![Correlation Matrix]({heatmap_file})\n")
+                for vis_file in visualization_files:
+                    f.write(f"![Visualization]({vis_file})\n")
 
                 # LLM Insights
                 f.write("\n## LLM Insights\n")
@@ -210,8 +241,8 @@ class DataAnalyzer:
 
     def run(self):
         self.load_data()
-        heatmap_file = self.visualize_data()
-        self.create_readme(heatmap_file)
+        visualization_files = self.generate_visualization()
+        self.create_readme(visualization_files)
 
 
 if __name__ == "__main__":
