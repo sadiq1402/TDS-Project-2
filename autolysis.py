@@ -8,6 +8,7 @@
 #     "pandas",
 #     "seaborn",
 # ]
+# ///
 
 import os
 import sys
