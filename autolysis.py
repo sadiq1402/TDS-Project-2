@@ -7,6 +7,7 @@
 #   "numpy",
 #   "scikit-learn",
 #   "requests",
+#   "ipykernel"
 # ]
 # ///
 
