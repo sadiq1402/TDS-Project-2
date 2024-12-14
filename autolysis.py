@@ -230,6 +230,18 @@ class AutoLysis:
         except Exception as e:
             print(f"Error in API request: {e}")
 
+    def main(csv_path):
+        try:
+            analyzer = DataAnalyzer(csv_path)
+            data_summary = analyzer.generate_data_summary()
+            analyses = analyzer.perform_analysis()
+            analyzer.generate_visualizations(analyses)
+            analyzer.generate_narrative(data_summary, analyses)
+            print(f"Analysis complete. Check {analyzer.output_folder} folder.")
+        except Exception as e:
+            print(f"Comprehensive error during analysis:")
+            print(traceback.format_exc())
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
