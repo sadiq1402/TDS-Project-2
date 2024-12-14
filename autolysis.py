@@ -1,11 +1,13 @@
-dependencies = [
-    "python-dotenv",
-    "matplotlib",
-    "requests",
-    "chardet",
-    "pandas",
-    "seaborn",
-]
+# /// script
+# requires-python  =">=3.9"
+# dependencies = [
+#     "python-dotenv",
+#     "matplotlib",
+#     "requests",
+#     "chardet",
+#     "pandas",
+#     "seaborn",
+# ]
 
 import os
 import sys
