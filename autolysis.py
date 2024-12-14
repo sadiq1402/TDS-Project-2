@@ -232,12 +232,8 @@ class AutoLysis:
 
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) != 2:
-        print("Usage: uv run autolysis.py <dataset.csv>")
+        print("Usage: python autolysis.py <path_to_csv>")
         sys.exit(1)
 
-    csv_file = sys.argv[1]
-    auto_lysis = AutoLysis(csv_file)
-    auto_lysis.run()
+    main(sys.argv[1])
