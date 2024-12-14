@@ -7,7 +7,8 @@
 #   "numpy",
 #   "scikit-learn",
 #   "requests",
-#   "ipykernel"
+#   "ipykernel",
+#   "scikit-learn"
 # ]
 # ///
 
@@ -18,6 +19,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import requests
 import json
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 
 class DataAnalyzer:
@@ -25,10 +29,6 @@ class DataAnalyzer:
         self.csv_file = csv_file
         self.output_dir = output_dir
         self.df = None
-        self.summary_stats = None
-        self.missing_values = None
-        self.corr_matrix = None
-        self.outliers = None
 
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
@@ -41,128 +41,177 @@ class DataAnalyzer:
             print(f"Error reading file: {e}")
             raise
 
-    def analyze_data(self):
-        print("Analyzing the data...")
-        self.summary_stats = self.df.describe()
-        self.missing_values = self.df.isnull().sum()
-        numeric_df = self.df.select_dtypes(include=[np.number])
-        self.corr_matrix = numeric_df.corr() if not numeric_df.empty else pd.DataFrame()
-        print("Data analysis complete.")
+    def generate_data_summary(self):
+        """Generate a comprehensive, serializable data summary"""
+        summary = {
+            "total_rows": len(self.df),
+            "columns": list(self.df.columns),
+            "column_types": {col: str(dtype) for col, dtype in self.df.dtypes.items()},
+            "missing_values": {
+                col: int(self.df[col].isnull().sum()) for col in self.df.columns
+            },
+        }
 
-    def detect_outliers(self):
-        print("Detecting outliers...")
-        df_numeric = self.df.select_dtypes(include=[np.number])
-        Q1 = df_numeric.quantile(0.25)
-        Q3 = df_numeric.quantile(0.75)
-        IQR = Q3 - Q1
-        self.outliers = (
-            (df_numeric < (Q1 - 1.5 * IQR)) | (df_numeric > (Q3 + 1.5 * IQR))
-        ).sum()
-        print("Outliers detection complete.")
+        # Add numeric summary for numeric columns
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            summary["numeric_summary"] = {}
+            for col in numeric_cols:
+                summary["numeric_summary"][col] = {
+                    "mean": float(self.df[col].mean()),
+                    "median": float(self.df[col].median()),
+                    "min": float(self.df[col].min()),
+                    "max": float(self.df[col].max()),
+                    "std": float(self.df[col].std()),
+                }
+
+        return summary
+
+    def perform_analysis(self):
+        """Perform multiple types of analysis with error handling"""
+        analyses = {}
+
+        # Correlation Analysis
+        try:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 1:
+                correlation_matrix = self.df[numeric_cols].corr()
+                analyses["correlation"] = {
+                    "matrix": correlation_matrix.values.tolist(),
+                    "columns": list(correlation_matrix.columns),
+                }
+        except Exception as e:
+            analyses["correlation_error"] = str(e)
+
+        # Clustering Analysis
+        try:
+            numeric_data = self.df.select_dtypes(include=[np.number])
+            if len(numeric_data.columns) > 1:
+                scaler = StandardScaler()
+                scaled_data = scaler.fit_transform(numeric_data)
+
+                # Adaptive number of clusters
+                n_clusters = min(3, len(numeric_data.columns))
+                kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+                cluster_labels = kmeans.fit_predict(scaled_data)
+
+                analyses["clustering"] = {
+                    "labels": cluster_labels.tolist(),
+                    "columns": list(numeric_data.columns),
+                }
+        except Exception as e:
+            analyses["clustering_error"] = str(e)
+
+        # PCA Analysis
+        try:
+            numeric_data = self.df.select_dtypes(include=[np.number])
+            if len(numeric_data.columns) > 1:
+                pca = PCA(n_components=min(2, len(numeric_data.columns)))
+                pca_result = pca.fit_transform(
+                    StandardScaler().fit_transform(numeric_data)
+                )
+
+                analyses["pca"] = {
+                    "components": pca_result.tolist(),
+                    "columns": list(numeric_data.columns),
+                    "explained_variance": pca.explained_variance_ratio_.tolist(),
+                }
+        except Exception as e:
+            analyses["pca_error"] = str(e)
+
+        return analyses
+
+    def call_llm(self, prompt):
+        """Call the LLM for dataset insights or narrative"""
+        api_url = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('AIPROXY_TOKEN')}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
+        try:
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            return (
+                response.json()
+                .get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "No response")
+            )
+        except Exception as e:
+            print(f"Error calling LLM: {e}")
+            return "Error generating response."
 
     def visualize_data(self):
         print("Generating visualizations...")
 
         # Correlation Matrix Heatmap
         heatmap_file = os.path.join(self.output_dir, "correlation_matrix.png")
-        if not self.corr_matrix.empty:
-            plt.figure(figsize=(10, 8))
-            sns.heatmap(
-                self.corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5
-            )
-            plt.title("Correlation Matrix")
-            plt.savefig(heatmap_file)
-            plt.close()
+        if not self.df.empty:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 1:
+                plt.figure(figsize=(10, 8))
+                sns.heatmap(
+                    self.df[numeric_cols].corr(),
+                    annot=True,
+                    cmap="coolwarm",
+                    fmt=".2f",
+                    linewidths=0.5,
+                )
+                plt.title("Correlation Matrix")
+                plt.savefig(heatmap_file)
+                plt.close()
         else:
             heatmap_file = None
 
-        # Outliers Plot
-        outliers_file = os.path.join(self.output_dir, "outliers.png")
-        if not self.outliers.empty and self.outliers.sum() > 0:
-            plt.figure(figsize=(10, 6))
-            self.outliers.plot(kind="bar", color="red")
-            plt.title("Outliers Detection")
-            plt.xlabel("Columns")
-            plt.ylabel("Number of Outliers")
-            plt.savefig(outliers_file)
-            plt.close()
-        else:
-            outliers_file = None
-
-        # Distribution Plot
-        dist_plot_file = os.path.join(self.output_dir, "distribution.png")
-        numeric_columns = self.df.select_dtypes(include=[np.number]).columns
-        if len(numeric_columns) > 0:
-            first_numeric_column = numeric_columns[0]
-            plt.figure(figsize=(10, 6))
-            sns.histplot(self.df[first_numeric_column], kde=True, color="blue", bins=30)
-            plt.title(f"Distribution of {first_numeric_column}")
-            plt.savefig(dist_plot_file)
-            plt.close()
-        else:
-            dist_plot_file = None
-
         print("Visualizations generated.")
-        return heatmap_file, outliers_file, dist_plot_file
+        return heatmap_file
 
-    def create_readme(self, heatmap_file, outliers_file, dist_plot_file):
+    def create_readme(self, heatmap_file):
         print("Creating README file...")
         readme_file = os.path.join(self.output_dir, "README.md")
         try:
             with open(readme_file, "w") as f:
                 f.write("# Automated Data Analysis Report\n\n")
+
+                # Summary Statistics
                 f.write("## Summary Statistics\n")
-                f.write(self.summary_stats.to_markdown())
-                f.write("\n\n## Missing Values\n")
-                f.write(self.missing_values.to_markdown())
-                f.write("\n\n## Correlation Matrix\n")
+                summary = self.generate_data_summary()
+                f.write(json.dumps(summary, indent=4))
+                f.write("\n\n")
+
+                # Analysis
+                f.write("## Analysis\n")
+                analysis_results = self.perform_analysis()
+                f.write(json.dumps(analysis_results, indent=4))
+                f.write("\n\n")
+
+                # Visualizations
+                f.write("## Visualizations\n")
                 if heatmap_file:
                     f.write(f"![Correlation Matrix]({heatmap_file})\n")
-                f.write("\n\n## Outliers\n")
-                f.write(self.outliers.to_markdown())
-                if outliers_file:
-                    f.write(f"![Outliers]({outliers_file})\n")
-                f.write("\n\n## Distribution Plot\n")
-                if dist_plot_file:
-                    f.write(f"![Distribution]({dist_plot_file})\n")
+
+                # LLM Insights
+                f.write("\n## LLM Insights\n")
+                prompt = (
+                    "Provide a detailed analysis and insights based on this dataset: "
+                    + json.dumps(summary)
+                )
+                llm_response = self.call_llm(prompt)
+                f.write(llm_response)
+
             print("README file created.")
         except Exception as e:
             print(f"Error writing README file: {e}")
 
-    def question_llm(self, prompt, context):
-        print("Generating story using LLM...")
-        try:
-            token = os.environ["AIPROXY_TOKEN"]
-            api_url = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {token}",
-            }
-            data = {
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt},
-                ],
-                "max_tokens": 1000,
-                "temperature": 0.7,
-            }
-            response = requests.post(api_url, headers=headers, data=json.dumps(data))
-            if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"].strip()
-            else:
-                print(f"Error: {response.status_code} - {response.text}")
-                return "Failed to generate story."
-        except Exception as e:
-            print(f"Error: {e}")
-            return "Failed to generate story."
-
     def run(self):
         self.load_data()
-        self.analyze_data()
-        self.detect_outliers()
-        heatmap_file, outliers_file, dist_plot_file = self.visualize_data()
-        self.create_readme(heatmap_file, outliers_file, dist_plot_file)
+        heatmap_file = self.visualize_data()
+        self.create_readme(heatmap_file)
 
 
 if __name__ == "__main__":
