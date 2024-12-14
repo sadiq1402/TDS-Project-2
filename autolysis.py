@@ -5,7 +5,7 @@
 #   "seaborn",
 #   "matplotlib",
 #   "numpy",
-#   "scikit-learn"
+#   "scikit-learn",
 #   "requests",
 #   "json"
 # ]
