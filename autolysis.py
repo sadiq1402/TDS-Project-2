@@ -1,48 +1,26 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#   "pandas",
-#   "seaborn",
-#   "matplotlib",
-#   "numpy",
-#   "scikit-learn",
-#   "requests",
-#   "ipykernel",
-#   "scikit-learn"
-# ]
-# ///
-
 import os
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-import requests
-import json
+from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
+import requests
+import json
+import openai
+from datetime import datetime
 
 
 class DataAnalyzer:
     def __init__(self, csv_file):
         self.csv_file = csv_file
-        self.df = None
-
-        # Derive output directory name from CSV file
+        self.df = pd.read_csv(csv_file, encoding="ISO-8859-1")
         self.output_dir = os.path.splitext(os.path.basename(csv_file))[0]
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def load_data(self):
-        try:
-            self.df = pd.read_csv(self.csv_file, encoding="ISO-8859-1")
-            print("Dataset loaded successfully!")
-        except UnicodeDecodeError as e:
-            print(f"Error reading file: {e}")
-            raise
-
     def generate_data_summary(self):
-        """Generate a comprehensive, serializable data summary"""
+        """Generate a comprehensive, serializable data summary."""
         summary = {
             "total_rows": len(self.df),
             "columns": list(self.df.columns),
@@ -68,7 +46,7 @@ class DataAnalyzer:
         return summary
 
     def perform_analysis(self):
-        """Perform multiple types of analysis with error handling"""
+        """Perform multiple types of analysis with error handling."""
         analyses = {}
 
         # Correlation Analysis
@@ -121,284 +99,147 @@ class DataAnalyzer:
 
         return analyses
 
-    def call_llm(self, prompt):
-        """Call the LLM for dataset insights or narrative"""
-        api_url = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {os.getenv('AIPROXY_TOKEN')}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": prompt}],
-        }
-
-        try:
-            response = requests.post(api_url, headers=headers, json=payload)
-            response.raise_for_status()
-            return (
-                response.json()
-                .get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "No response")
-            )
-        except Exception as e:
-            print(f"Error calling LLM: {e}")
-            return "Error generating response."
-
-    # def generate_visualization(self):
-    #     print("Generating visualizations...")
-
-    #     visualization_files = []
-
-    #     # Correlation Matrix Heatmap
+    # def generate_visualizations(self, analyses):
+    #     """Generate top 3 visualizations and save them in a single PNG."""
     #     numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-    #     if len(numeric_cols) > 1:
-    #         plt.figure(figsize=(10, 8))
-    #         sns.heatmap(
-    #             self.df[numeric_cols].corr(),
-    #             annot=True,
-    #             cmap="coolwarm",
-    #             fmt=".2f",
-    #             linewidths=0.5,
-    #         )
-    #         plt.title("Correlation Matrix")
-    #         plt.xlabel("Features")
-    #         plt.ylabel("Features")
-    #         heatmap_file = os.path.join(self.output_dir, "correlation_matrix.png")
-    #         plt.savefig(heatmap_file)
+
+    #     # Visualization 1: Correlation Heatmap
+    #     plt.figure(figsize=(6, 4))
+    #     sns.heatmap(
+    #         self.df[numeric_cols].corr(), annot=True, cmap="coolwarm", fmt=".2f"
+    #     )
+    #     plt.title("Correlation Heatmap")
+    #     heatmap_path = os.path.join(self.output_dir, "heatmap.png")
+    #     plt.savefig(heatmap_path, dpi=100)
+    #     plt.close()
+
+    #     # Visualization 2: PCA Scatter Plot (if available)
+    #     if "pca" in analyses:
+    #         pca_data = np.array(analyses["pca"]["components"])
+    #         plt.figure(figsize=(6, 4))
+    #         plt.scatter(pca_data[:, 0], pca_data[:, 1], alpha=0.6)
+    #         plt.title("PCA Scatter Plot")
+    #         plt.xlabel("Principal Component 1")
+    #         plt.ylabel("Principal Component 2")
+    #         pca_path = os.path.join(self.output_dir, "pca_scatter.png")
+    #         plt.savefig(pca_path, dpi=100)
     #         plt.close()
-    #         visualization_files.append(heatmap_file)
 
-    #     # Histogram for Numeric Columns
-    #     for col in numeric_cols:
-    #         plt.figure(figsize=(8, 6))
-    #         sns.histplot(self.df[col], kde=True, color="skyblue")
-    #         plt.title(f"Distribution of {col}")
-    #         plt.xlabel(col)
-    #         plt.ylabel("Frequency")
-    #         hist_file = os.path.join(self.output_dir, f"{col}_histogram.png")
-    #         plt.savefig(hist_file)
+    #     # Visualization 3: Distribution of First Numeric Column
+    #     if len(numeric_cols) > 0:
+    #         plt.figure(figsize=(6, 4))
+    #         sns.histplot(self.df[numeric_cols[0]], kde=True, bins=30)
+    #         plt.title(f"Distribution of {numeric_cols[0]}")
+    #         dist_path = os.path.join(self.output_dir, "distribution.png")
+    #         plt.savefig(dist_path, dpi=100)
     #         plt.close()
-    #         visualization_files.append(hist_file)
 
-    #     # Scatter Plot for First Two Numeric Columns
-    #     if len(numeric_cols) > 1:
-    #         plt.figure(figsize=(8, 6))
-    #         plt.scatter(
-    #             self.df[numeric_cols[0]],
-    #             self.df[numeric_cols[1]],
-    #             alpha=0.7,
-    #             color="purple",
-    #         )
-    #         plt.title(f"Scatter Plot: {numeric_cols[0]} vs {numeric_cols[1]}")
-    #         plt.xlabel(numeric_cols[0])
-    #         plt.ylabel(numeric_cols[1])
-    #         scatter_file = os.path.join(self.output_dir, "scatter_plot.png")
-    #         plt.savefig(scatter_file)
-    #         plt.close()
-    #         visualization_files.append(scatter_file)
+    #     return [heatmap_path, pca_path, dist_path]
 
-    #     print("Visualizations generated.")
-    #     return visualization_files
-
-    def generate_visualization(self):
-        """Generate a single PNG containing up to 3 key visualizations."""
-        print("Generating visualizations...")
-
+    def generate_visualizations(self, analyses):
+        """Generate top 3 visualizations and save them in a single PNG."""
         numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        num_plots = min(3, len(numeric_cols))  # Limit to 3 visualizations
-        if num_plots == 0:
-            print("No numeric columns available for visualization.")
-            return None
 
-        # Prepare a figure to include up to 3 subplots
-        fig, axes = plt.subplots(1, num_plots, figsize=(6 * num_plots, 6))
-        if num_plots == 1:
-            axes = [axes]  # Ensure axes is iterable
-
-        plot_count = 0
-
-        # Correlation Matrix Heatmap
-        if len(numeric_cols) > 1 and plot_count < num_plots:
-            sns.heatmap(
-                self.df[numeric_cols].corr(),
-                annot=True,
-                cmap="coolwarm",
-                fmt=".2f",
-                linewidths=0.5,
-                ax=axes[plot_count],
-            )
-            axes[plot_count].set_title("Correlation Matrix")
-            axes[plot_count].set_xlabel("Features")
-            axes[plot_count].set_ylabel("Features")
-            plot_count += 1
-
-        # Histogram for the first numeric column
-        if len(numeric_cols) > 0 and plot_count < num_plots:
-            sns.histplot(
-                self.df[numeric_cols[0]], kde=True, color="skyblue", ax=axes[plot_count]
-            )
-            axes[plot_count].set_title(f"Distribution of {numeric_cols[0]}")
-            axes[plot_count].set_xlabel(numeric_cols[0])
-            axes[plot_count].set_ylabel("Frequency")
-            plot_count += 1
-
-        # Scatter Plot for First Two Numeric Columns
-        if len(numeric_cols) > 1 and plot_count < num_plots:
-            axes[plot_count].scatter(
-                self.df[numeric_cols[0]],
-                self.df[numeric_cols[1]],
-                alpha=0.7,
-                color="purple",
-            )
-            axes[plot_count].set_title(
-                f"Scatter Plot: {numeric_cols[0]} vs {numeric_cols[1]}"
-            )
-            axes[plot_count].set_xlabel(numeric_cols[0])
-            axes[plot_count].set_ylabel(numeric_cols[1])
-            plot_count += 1
-
-        # Save visualizations to a single PNG file
-        plt.tight_layout()
-        vis_file = os.path.join(self.output_dir, "visualizations.png")
-        plt.savefig(vis_file)
+        # Visualization 1: Correlation Heatmap
+        plt.figure(figsize=(6, 4))
+        sns.heatmap(
+            self.df[numeric_cols].corr(), annot=True, cmap="coolwarm", fmt=".2f"
+        )
+        plt.title("Correlation Heatmap")
+        heatmap_path = os.path.join(self.output_dir, "heatmap.png")
+        plt.savefig(heatmap_path, dpi=100)
         plt.close()
-        print(f"Visualizations saved to {vis_file}")
-        return vis_file
 
-    def create_readme(self, visualization_file):
-        """Create a README file summarizing the analysis and referencing the visualization."""
-        print("Creating README file...")
-        readme_file = os.path.join(self.output_dir, "README.md")
+        # Visualization 2: PCA Scatter Plot (if available)
+        pca_path = None  # Initialize variable
+        if "pca" in analyses:
+            pca_data = np.array(analyses["pca"]["components"])
+            plt.figure(figsize=(6, 4))
+            plt.scatter(pca_data[:, 0], pca_data[:, 1], alpha=0.6)
+            plt.title("PCA Scatter Plot")
+            plt.xlabel("Principal Component 1")
+            plt.ylabel("Principal Component 2")
+            pca_path = os.path.join(self.output_dir, "pca_scatter.png")
+            plt.savefig(pca_path, dpi=100)
+            plt.close()
+
+        # Visualization 3: Distribution of First Numeric Column
+        dist_path = None  # Initialize variable
+        if len(numeric_cols) > 0:
+            plt.figure(figsize=(6, 4))
+            sns.histplot(self.df[numeric_cols[0]], kde=True, bins=30)
+            plt.title(f"Distribution of {numeric_cols[0]}")
+            dist_path = os.path.join(self.output_dir, "distribution.png")
+            plt.savefig(dist_path, dpi=100)
+            plt.close()
+
+        return [heatmap_path, pca_path, dist_path]
+
+    def generate_story(self, summary, analyses):
+        """Generate a story using LLM based on the analysis."""
         try:
-            with open(readme_file, "w") as f:
-                f.write("# Automated Data Analysis Report\n\n")
+            token = os.environ.get("AIPROXY_TOKEN")
+            api_url = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
 
-                # Summary Statistics
-                f.write("## Summary Statistics\n")
-                summary = self.generate_data_summary()
-                f.write(json.dumps(summary, indent=4))
-                f.write("\n\n")
+            prompt = (
+                f"Data Analysis Summary:\nSummary:\n{summary}\n\n"
+                f"Analyses:\n{analyses}\n\nGenerate an engaging story describing the data, insights, and implications."
+            )
 
-                # Analysis
-                f.write("## Analysis\n")
-                analysis_results = self.perform_analysis()
-                f.write(json.dumps(analysis_results, indent=4))
-                f.write("\n\n")
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            }
+            data = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.7,
+            }
 
-                # Visualizations
-                f.write("## Visualizations\n")
-                f.write(
-                    "The following visualizations provide key insights into the dataset:\n"
-                )
-                f.write(f"![Visualizations]({os.path.basename(visualization_file)})\n")
-
-                # LLM Insights
-                f.write("\n## LLM Insights\n")
-                prompt = (
-                    "Provide a detailed analysis and insights based on this dataset: "
-                    + json.dumps(summary)
-                )
-                llm_response = self.call_llm(prompt)
-                f.write(llm_response)
-
-            print(f"README file created at {readme_file}")
+            response = requests.post(api_url, headers=headers, data=json.dumps(data))
+            if response.status_code == 200:
+                return response.json()["choices"][0]["message"]["content"]
         except Exception as e:
-            print(f"Error writing README file: {e}")
+            print(f"Error generating story: {e}")
+        return "Story generation failed."
 
-    # def create_readme(self, visualization_files):
-    #     print("Creating README file...")
-    #     readme_file = os.path.join(self.output_dir, "README.md")
-    #     try:
-    #         with open(readme_file, "w") as f:
-    #             f.write("# Automated Data Analysis Report\n\n")
-
-    #             # Summary Statistics
-    #             f.write("## Summary Statistics\n")
-    #             summary = self.generate_data_summary()
-    #             f.write(json.dumps(summary, indent=4))
-    #             f.write("\n\n")
-
-    #             # Analysis
-    #             f.write("## Analysis\n")
-    #             analysis_results = self.perform_analysis()
-    #             f.write(json.dumps(analysis_results, indent=4))
-    #             f.write("\n\n")
-
-    #             # Visualizations
-    #             f.write("## Visualizations\n")
-    #             for vis_file in visualization_files:
-    #                 f.write(f"![Visualization]({vis_file})\n")
-
-    #             # LLM Insights
-    #             f.write("\n## LLM Insights\n")
-    #             prompt = (
-    #                 "Provide a detailed analysis and insights based on this dataset: "
-    #                 + json.dumps(summary)
-    #             )
-    #             llm_response = self.call_llm(prompt)
-    #             f.write(llm_response)
-
-    #         print("README file created.")
-    #     except Exception as e:
-    #         print(f"Error writing README file: {e}")
-    def create_readme(self, visualization_file):
-        """Create a README file summarizing the analysis and referencing visualizations."""
-        print("Creating README file...")
-        readme_file = os.path.join(self.output_dir, "README.md")
+    def create_readme(self, summary, analyses, visualizations, story):
+        """Create a README.md summarizing the analysis."""
+        readme_path = os.path.join(self.output_dir, "README.md")
         try:
-            with open(readme_file, "w") as f:
-                f.write("# Automated Data Analysis Report\n\n")
-
-                # Summary Statistics
-                f.write("## Summary Statistics\n")
-                summary = self.generate_data_summary()
-                f.write(json.dumps(summary, indent=4))
-                f.write("\n\n")
-
-                # Analysis
-                f.write("## Analysis\n")
-                analysis_results = self.perform_analysis()
-                f.write(json.dumps(analysis_results, indent=4))
-                f.write("\n\n")
-
-                # Visualizations
-                f.write("## Visualizations\n")
-                f.write(
-                    "The following visualizations provide key insights into the dataset:\n"
-                )
-                f.write(f"![Visualizations]({os.path.basename(visualization_file)})\n")
-
-                # LLM Insights
-                f.write("\n## LLM Insights\n")
-                prompt = (
-                    "Provide a detailed analysis and insights based on this dataset: "
-                    + json.dumps(summary)
-                )
-                llm_response = self.call_llm(prompt)
-                f.write(llm_response)
-
-            print(f"README file created at {readme_file}")
+            with open(readme_path, "w") as f:
+                f.write("# Data Analysis Report\n\n")
+                f.write("## Summary\n")
+                f.write(f"- Total Rows: {summary['total_rows']}\n")
+                f.write(f"- Columns: {summary['columns']}\n")
+                f.write("\n## Visualizations\n")
+                for viz in visualizations:
+                    if viz:
+                        f.write(f"![Visualization]({viz})\n")
+                f.write("\n## Insights\n")
+                f.write(story)
         except Exception as e:
-            print(f"Error writing README file: {e}")
+            print(f"Error writing README.md: {e}")
 
     def run(self):
-        """Execute the full analysis pipeline."""
-        self.load_data()
-        visualization_file = self.generate_visualization()
-        if visualization_file:  # Only create README if visualizations are generated
-            self.create_readme(visualization_file)
+        summary = self.generate_data_summary()
+        analyses = self.perform_analysis()
+        visualizations = self.generate_visualizations(analyses)
+        story = self.generate_story(summary, analyses)
+        self.create_readme(summary, analyses, visualizations, story)
 
 
+# Example Usage
 if __name__ == "__main__":
-    import argparse
+    import sys
 
-    parser = argparse.ArgumentParser(description="Automated data analysis tool.")
-    parser.add_argument("csv_file", help="Path to the CSV file.")
+    if len(sys.argv) < 2:
+        print("Usage: python data_analyzer.py <dataset_path>")
+        sys.exit(1)
 
-    args = parser.parse_args()
-
-    # Instantiate the class without passing `output_dir`
-    analyzer = DataAnalyzer(csv_file=args.csv_file)
+    analyzer = DataAnalyzer(sys.argv[1])
     analyzer.run()
