@@ -25,12 +25,12 @@ from sklearn.preprocessing import StandardScaler
 
 
 class DataAnalyzer:
-    def __init__(self, csv_file, output_dir="."):
+    def __init__(self, csv_file):
         self.csv_file = csv_file
-        self.output_dir = output_dir
         self.df = None
 
-        # Ensure output directory exists
+        # Derive output directory name from CSV file
+        self.output_dir = os.path.splitext(os.path.basename(csv_file))[0]
         os.makedirs(self.output_dir, exist_ok=True)
 
     def load_data(self):
@@ -146,63 +146,129 @@ class DataAnalyzer:
             print(f"Error calling LLM: {e}")
             return "Error generating response."
 
+    # def generate_visualization(self):
+    #     print("Generating visualizations...")
+
+    #     visualization_files = []
+
+    #     # Correlation Matrix Heatmap
+    #     numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+    #     if len(numeric_cols) > 1:
+    #         plt.figure(figsize=(10, 8))
+    #         sns.heatmap(
+    #             self.df[numeric_cols].corr(),
+    #             annot=True,
+    #             cmap="coolwarm",
+    #             fmt=".2f",
+    #             linewidths=0.5,
+    #         )
+    #         plt.title("Correlation Matrix")
+    #         plt.xlabel("Features")
+    #         plt.ylabel("Features")
+    #         heatmap_file = os.path.join(self.output_dir, "correlation_matrix.png")
+    #         plt.savefig(heatmap_file)
+    #         plt.close()
+    #         visualization_files.append(heatmap_file)
+
+    #     # Histogram for Numeric Columns
+    #     for col in numeric_cols:
+    #         plt.figure(figsize=(8, 6))
+    #         sns.histplot(self.df[col], kde=True, color="skyblue")
+    #         plt.title(f"Distribution of {col}")
+    #         plt.xlabel(col)
+    #         plt.ylabel("Frequency")
+    #         hist_file = os.path.join(self.output_dir, f"{col}_histogram.png")
+    #         plt.savefig(hist_file)
+    #         plt.close()
+    #         visualization_files.append(hist_file)
+
+    #     # Scatter Plot for First Two Numeric Columns
+    #     if len(numeric_cols) > 1:
+    #         plt.figure(figsize=(8, 6))
+    #         plt.scatter(
+    #             self.df[numeric_cols[0]],
+    #             self.df[numeric_cols[1]],
+    #             alpha=0.7,
+    #             color="purple",
+    #         )
+    #         plt.title(f"Scatter Plot: {numeric_cols[0]} vs {numeric_cols[1]}")
+    #         plt.xlabel(numeric_cols[0])
+    #         plt.ylabel(numeric_cols[1])
+    #         scatter_file = os.path.join(self.output_dir, "scatter_plot.png")
+    #         plt.savefig(scatter_file)
+    #         plt.close()
+    #         visualization_files.append(scatter_file)
+
+    #     print("Visualizations generated.")
+    #     return visualization_files
+
     def generate_visualization(self):
+        """Generate a single PNG containing up to 3 key visualizations."""
         print("Generating visualizations...")
 
-        visualization_files = []
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        num_plots = min(3, len(numeric_cols))  # Limit to 3 visualizations
+        if num_plots == 0:
+            print("No numeric columns available for visualization.")
+            return None
+
+        # Prepare a figure to include up to 3 subplots
+        fig, axes = plt.subplots(1, num_plots, figsize=(6 * num_plots, 6))
+        if num_plots == 1:
+            axes = [axes]  # Ensure axes is iterable
+
+        plot_count = 0
 
         # Correlation Matrix Heatmap
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        if len(numeric_cols) > 1:
-            plt.figure(figsize=(10, 8))
+        if len(numeric_cols) > 1 and plot_count < num_plots:
             sns.heatmap(
                 self.df[numeric_cols].corr(),
                 annot=True,
                 cmap="coolwarm",
                 fmt=".2f",
                 linewidths=0.5,
+                ax=axes[plot_count],
             )
-            plt.title("Correlation Matrix")
-            plt.xlabel("Features")
-            plt.ylabel("Features")
-            heatmap_file = os.path.join(self.output_dir, "correlation_matrix.png")
-            plt.savefig(heatmap_file)
-            plt.close()
-            visualization_files.append(heatmap_file)
+            axes[plot_count].set_title("Correlation Matrix")
+            axes[plot_count].set_xlabel("Features")
+            axes[plot_count].set_ylabel("Features")
+            plot_count += 1
 
-        # Histogram for Numeric Columns
-        for col in numeric_cols:
-            plt.figure(figsize=(8, 6))
-            sns.histplot(self.df[col], kde=True, color="skyblue")
-            plt.title(f"Distribution of {col}")
-            plt.xlabel(col)
-            plt.ylabel("Frequency")
-            hist_file = os.path.join(self.output_dir, f"{col}_histogram.png")
-            plt.savefig(hist_file)
-            plt.close()
-            visualization_files.append(hist_file)
+        # Histogram for the first numeric column
+        if len(numeric_cols) > 0 and plot_count < num_plots:
+            sns.histplot(
+                self.df[numeric_cols[0]], kde=True, color="skyblue", ax=axes[plot_count]
+            )
+            axes[plot_count].set_title(f"Distribution of {numeric_cols[0]}")
+            axes[plot_count].set_xlabel(numeric_cols[0])
+            axes[plot_count].set_ylabel("Frequency")
+            plot_count += 1
 
         # Scatter Plot for First Two Numeric Columns
-        if len(numeric_cols) > 1:
-            plt.figure(figsize=(8, 6))
-            plt.scatter(
+        if len(numeric_cols) > 1 and plot_count < num_plots:
+            axes[plot_count].scatter(
                 self.df[numeric_cols[0]],
                 self.df[numeric_cols[1]],
                 alpha=0.7,
                 color="purple",
             )
-            plt.title(f"Scatter Plot: {numeric_cols[0]} vs {numeric_cols[1]}")
-            plt.xlabel(numeric_cols[0])
-            plt.ylabel(numeric_cols[1])
-            scatter_file = os.path.join(self.output_dir, "scatter_plot.png")
-            plt.savefig(scatter_file)
-            plt.close()
-            visualization_files.append(scatter_file)
+            axes[plot_count].set_title(
+                f"Scatter Plot: {numeric_cols[0]} vs {numeric_cols[1]}"
+            )
+            axes[plot_count].set_xlabel(numeric_cols[0])
+            axes[plot_count].set_ylabel(numeric_cols[1])
+            plot_count += 1
 
-        print("Visualizations generated.")
-        return visualization_files
+        # Save visualizations to a single PNG file
+        plt.tight_layout()
+        vis_file = os.path.join(self.output_dir, "visualizations.png")
+        plt.savefig(vis_file)
+        plt.close()
+        print(f"Visualizations saved to {vis_file}")
+        return vis_file
 
-    def create_readme(self, visualization_files):
+    def create_readme(self, visualization_file):
+        """Create a README file summarizing the analysis and referencing the visualization."""
         print("Creating README file...")
         readme_file = os.path.join(self.output_dir, "README.md")
         try:
@@ -223,8 +289,10 @@ class DataAnalyzer:
 
                 # Visualizations
                 f.write("## Visualizations\n")
-                for vis_file in visualization_files:
-                    f.write(f"![Visualization]({vis_file})\n")
+                f.write(
+                    "The following visualizations provide key insights into the dataset:\n"
+                )
+                f.write(f"![Visualizations]({os.path.basename(visualization_file)})\n")
 
                 # LLM Insights
                 f.write("\n## LLM Insights\n")
@@ -235,14 +303,92 @@ class DataAnalyzer:
                 llm_response = self.call_llm(prompt)
                 f.write(llm_response)
 
-            print("README file created.")
+            print(f"README file created at {readme_file}")
+        except Exception as e:
+            print(f"Error writing README file: {e}")
+
+    # def create_readme(self, visualization_files):
+    #     print("Creating README file...")
+    #     readme_file = os.path.join(self.output_dir, "README.md")
+    #     try:
+    #         with open(readme_file, "w") as f:
+    #             f.write("# Automated Data Analysis Report\n\n")
+
+    #             # Summary Statistics
+    #             f.write("## Summary Statistics\n")
+    #             summary = self.generate_data_summary()
+    #             f.write(json.dumps(summary, indent=4))
+    #             f.write("\n\n")
+
+    #             # Analysis
+    #             f.write("## Analysis\n")
+    #             analysis_results = self.perform_analysis()
+    #             f.write(json.dumps(analysis_results, indent=4))
+    #             f.write("\n\n")
+
+    #             # Visualizations
+    #             f.write("## Visualizations\n")
+    #             for vis_file in visualization_files:
+    #                 f.write(f"![Visualization]({vis_file})\n")
+
+    #             # LLM Insights
+    #             f.write("\n## LLM Insights\n")
+    #             prompt = (
+    #                 "Provide a detailed analysis and insights based on this dataset: "
+    #                 + json.dumps(summary)
+    #             )
+    #             llm_response = self.call_llm(prompt)
+    #             f.write(llm_response)
+
+    #         print("README file created.")
+    #     except Exception as e:
+    #         print(f"Error writing README file: {e}")
+    def create_readme(self, visualization_file):
+        """Create a README file summarizing the analysis and referencing visualizations."""
+        print("Creating README file...")
+        readme_file = os.path.join(self.output_dir, "README.md")
+        try:
+            with open(readme_file, "w") as f:
+                f.write("# Automated Data Analysis Report\n\n")
+
+                # Summary Statistics
+                f.write("## Summary Statistics\n")
+                summary = self.generate_data_summary()
+                f.write(json.dumps(summary, indent=4))
+                f.write("\n\n")
+
+                # Analysis
+                f.write("## Analysis\n")
+                analysis_results = self.perform_analysis()
+                f.write(json.dumps(analysis_results, indent=4))
+                f.write("\n\n")
+
+                # Visualizations
+                f.write("## Visualizations\n")
+                f.write(
+                    "The following visualizations provide key insights into the dataset:\n"
+                )
+                f.write(f"![Visualizations]({os.path.basename(visualization_file)})\n")
+
+                # LLM Insights
+                f.write("\n## LLM Insights\n")
+                prompt = (
+                    "Provide a detailed analysis and insights based on this dataset: "
+                    + json.dumps(summary)
+                )
+                llm_response = self.call_llm(prompt)
+                f.write(llm_response)
+
+            print(f"README file created at {readme_file}")
         except Exception as e:
             print(f"Error writing README file: {e}")
 
     def run(self):
+        """Execute the full analysis pipeline."""
         self.load_data()
-        visualization_files = self.generate_visualization()
-        self.create_readme(visualization_files)
+        visualization_file = self.generate_visualization()
+        if visualization_file:  # Only create README if visualizations are generated
+            self.create_readme(visualization_file)
 
 
 if __name__ == "__main__":
@@ -250,9 +396,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Automated data analysis tool.")
     parser.add_argument("csv_file", help="Path to the CSV file.")
-    parser.add_argument("--output_dir", default=".", help="Directory to save outputs.")
 
     args = parser.parse_args()
 
-    analyzer = DataAnalyzer(csv_file=args.csv_file, output_dir=args.output_dir)
+    # Instantiate the class without passing `output_dir`
+    analyzer = DataAnalyzer(csv_file=args.csv_file)
     analyzer.run()
