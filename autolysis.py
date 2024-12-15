@@ -1,21 +1,13 @@
-#!/usr/bin/env python3
-"""
-Autolysis: Advanced CSV Data Analysis and Reporting Tool
+# ///script
 
-This script provides comprehensive data analysis and visualization 
-for CSV datasets, including:
-- Robust data loading with multi-encoding support
-- Advanced statistical analysis
-- Interactive visualization
-- Narrative report generation
-
-Dependencies:
-- pandas
-- numpy
-- scikit-learn
-- seaborn
-- matplotlib
-"""
+# Dependencies = [
+#     "pandas",
+#     "numpy",
+#     "scikit-learn",
+#     "seaborn",
+#     "matplotlib"
+#     ]
+# ///
 
 import os
 import sys
