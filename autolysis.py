@@ -1,488 +1,541 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#   "pandas",
-#   "seaborn",
-#   "matplotlib",
-#   "numpy",
-#   "scikit-learn"
-# ]
-# ///
+#!/usr/bin/env python3
+"""
+Autolysis: Advanced CSV Data Analysis and Reporting Tool
+
+This script provides comprehensive data analysis and visualization 
+for CSV datasets, including:
+- Robust data loading with multi-encoding support
+- Advanced statistical analysis
+- Interactive visualization
+- Narrative report generation
+
+Dependencies:
+- pandas
+- numpy
+- scikit-learn
+- seaborn
+- matplotlib
+"""
 
 import os
 import sys
 import json
 import traceback
+import warnings
+from typing import Dict, List, Any, Optional
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.feature_selection import mutual_info_regression
+from sklearn.impute import SimpleImputer
 
 
 class DataAnalyzer:
-    def __init__(self, csv_path):
-        # Validate input
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError(f"The file {csv_path} does not exist.")
+    """
+    A comprehensive data analysis class that provides advanced
+    data processing, statistical analysis, and reporting capabilities.
 
-        # Try multiple encodings
-        encodings_to_try = ["utf-8", "latin-1", "iso-8859-1", "cp1252", "utf-8-sig"]
+    Supports adaptive analysis based on dataset characteristics.
+    """
 
-        for encoding in encodings_to_try:
-            try:
-                # Load data with the current encoding
-                self.df = pd.read_csv(csv_path, encoding=encoding)
-                break  # If successful, exit the loop
-            except UnicodeDecodeError:
-                continue
-            except Exception as e:
-                # If any other unexpected error occurs
-                raise ValueError(f"Could not read the CSV file with any encoding: {e}")
-        else:
-            # If no encoding worked
-            raise ValueError(
-                "Could not read the CSV file with any of the attempted encodings"
-            )
+    def __init__(self, csv_path: str, encoding_priority: List[str] = None):
+        """
+        Initialize the DataAnalyzer with robust file loading.
 
-        # Determine output folder name based on CSV filename
-        self.output_folder = self._get_output_folder(csv_path)
+        Args:
+            csv_path (str): Path to the input CSV file
+            encoding_priority (List[str], optional): Custom encoding priorities
+        """
+        # Configure warning suppression for cleaner output
+        warnings.filterwarnings("ignore", category=UserWarning)
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-        # Create output folder if it doesn't exist
-        os.makedirs(self.output_folder, exist_ok=True)
+        # Default encoding priority with extended options
+        self.encoding_priority = encoding_priority or [
+            "utf-8",
+            "utf-8-sig",
+            "latin-1",
+            "iso-8859-1",
+            "cp1252",
+            "windows-1252",
+        ]
 
-        # Store original columns and path
-        self.original_columns = self.df.columns.tolist()
+        # Load the CSV with robust encoding detection
+        self.df = self._load_csv(csv_path)
         self.csv_path = csv_path
+        self.output_folder = self._create_output_folder(csv_path)
 
-    def _get_output_folder(self, csv_path):
+        # Pre-process data immediately after loading
+        self._preprocess_data()
+
+    def _load_csv(self, csv_path: str) -> pd.DataFrame:
         """
-        Generate output folder name based on CSV filename
-        Handles various naming scenarios
+        Robustly load CSV with multiple encoding attempts.
+
+        Args:
+            csv_path (str): Path to CSV file
+
+        Returns:
+            pd.DataFrame: Loaded dataframe
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If no encoding works
         """
-        # Extract filename without extension
-        base_filename = os.path.splitext(os.path.basename(csv_path))[0]
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
-        # Convert to lowercase, remove special characters
-        folder_name = "".join(c if c.isalnum() else "_" for c in base_filename.lower())
+        for encoding in self.encoding_priority:
+            try:
+                return pd.read_csv(csv_path, encoding=encoding)
+            except (UnicodeDecodeError, pd.errors.ParserError):
+                continue
 
-        # Ensure folder name is valid
-        if not folder_name:
-            folder_name = "dataset_analysis"
+        raise ValueError("Unable to read CSV with any attempted encoding")
 
-        return folder_name
+    def _preprocess_data(self):
+        """
+        Advanced data preprocessing with adaptive strategies.
+        """
+        # Handle missing values adaptively
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        categorical_cols = self.df.select_dtypes(include=["object"]).columns
 
-    def generate_data_summary(self):
-        """Generate a comprehensive, serializable data summary"""
+        # Robust imputation strategies
+        if len(numeric_cols) > 0:
+            imputer = SimpleImputer(strategy="median")
+            self.df[numeric_cols] = imputer.fit_transform(self.df[numeric_cols])
+
+        if len(categorical_cols) > 0:
+            imputer = SimpleImputer(strategy="most_frequent")
+            self.df[categorical_cols] = imputer.fit_transform(self.df[categorical_cols])
+
+    def _create_output_folder(self, csv_path: str) -> str:
+        """
+        Create a sanitized output folder name based on CSV filename.
+
+        Args:
+            csv_path (str): Path to input CSV
+
+        Returns:
+            str: Sanitized folder name
+        """
+        base_name = os.path.splitext(os.path.basename(csv_path))[0]
+        sanitized_name = "".join(c if c.isalnum() else "_" for c in base_name.lower())
+        folder_name = sanitized_name or "dataset_analysis"
+
+        output_path = os.path.join(os.getcwd(), folder_name)
+        os.makedirs(output_path, exist_ok=True)
+        return output_path
+
+    def generate_advanced_summary(self) -> Dict[str, Any]:
+        """
+        Generate a comprehensive, multi-dimensional dataset summary.
+
+        Returns:
+            Dict containing detailed dataset insights
+        """
         summary = {
-            "total_rows": len(self.df),
-            "columns": list(self.df.columns),
-            "column_types": {col: str(dtype) for col, dtype in self.df.dtypes.items()},
-            "missing_values": {
-                col: int(self.df[col].isnull().sum()) for col in self.df.columns
+            "metadata": {
+                "total_rows": len(self.df),
+                "total_columns": len(self.df.columns),
+                "file_path": self.csv_path,
             },
+            "column_analysis": {},
+            "missing_data": {},
+            "data_distribution": {},
         }
 
-        # Add numeric summary for numeric columns
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        if len(numeric_cols) > 0:
-            summary["numeric_summary"] = {}
-            for col in numeric_cols:
-                summary["numeric_summary"][col] = {
-                    "mean": float(self.df[col].mean()),
-                    "median": float(self.df[col].median()),
-                    "min": float(self.df[col].min()),
-                    "max": float(self.df[col].max()),
-                    "std": float(self.df[col].std()),
-                }
+        # Detailed column-level analysis
+        for column in self.df.columns:
+            col_summary = {
+                "dtype": str(self.df[column].dtype),
+                "unique_values": self.df[column].nunique(),
+                "missing_count": self.df[column].isnull().sum(),
+                "missing_percentage": round(self.df[column].isnull().mean() * 100, 2),
+            }
+
+            # Additional numeric column insights
+            if pd.api.types.is_numeric_dtype(self.df[column]):
+                col_summary.update(
+                    {
+                        "min": self.df[column].min(),
+                        "max": self.df[column].max(),
+                        "mean": round(self.df[column].mean(), 2),
+                        "median": round(self.df[column].median(), 2),
+                        "std_dev": round(self.df[column].std(), 2),
+                        "skewness": round(self.df[column].skew(), 2),
+                        "kurtosis": round(self.df[column].kurtosis(), 2),
+                    }
+                )
+
+            # Categorical column insights
+            if pd.api.types.is_object_dtype(self.df[column]):
+                top_categories = self.df[column].value_counts().head(5).to_dict()
+                col_summary["top_categories"] = top_categories
+
+            summary["column_analysis"][column] = col_summary
 
         return summary
 
-    def perform_analysis(self):
-        """Perform multiple types of analysis with error handling"""
-        analyses = {}
+    def perform_advanced_analysis(self) -> Dict[str, Any]:
+        """
+        Conduct sophisticated multi-dimensional data analysis.
 
-        # Correlation Analysis
-        try:
-            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-            if len(numeric_cols) > 1:
-                correlation_matrix = self.df[numeric_cols].corr()
-                analyses["correlation"] = {
-                    "matrix": correlation_matrix.values.tolist(),
-                    "columns": list(correlation_matrix.columns),
-                }
-        except Exception as e:
-            analyses["correlation_error"] = str(e)
-
-        # Clustering Analysis
-        try:
-            numeric_data = self.df.select_dtypes(include=[np.number])
-            if len(numeric_data.columns) > 1:
-                scaler = StandardScaler()
-                scaled_data = scaler.fit_transform(numeric_data)
-
-                # Adaptive number of clusters
-                n_clusters = min(3, len(numeric_data.columns))
-                kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-                cluster_labels = kmeans.fit_predict(scaled_data)
-
-                analyses["clustering"] = {
-                    "labels": cluster_labels.tolist(),
-                    "columns": list(numeric_data.columns),
-                }
-        except Exception as e:
-            analyses["clustering_error"] = str(e)
-
-        # PCA Analysis
-        try:
-            numeric_data = self.df.select_dtypes(include=[np.number])
-            if len(numeric_data.columns) > 1:
-                pca = PCA(n_components=min(2, len(numeric_data.columns)))
-                pca_result = pca.fit_transform(
-                    StandardScaler().fit_transform(numeric_data)
-                )
-
-                analyses["pca"] = {
-                    "components": pca_result.tolist(),
-                    "columns": list(numeric_data.columns),
-                    "explained_variance": pca.explained_variance_ratio_.tolist(),
-                }
-        except Exception as e:
-            analyses["pca_error"] = str(e)
-
+        Returns:
+            Dict containing various advanced analytical insights
+        """
+        analyses = {
+            "correlation": self._compute_correlations(),
+            "feature_importance": self._compute_feature_importance(),
+            "clustering": self._perform_clustering(),
+            "dimensionality_reduction": self._compute_dimensionality_reduction(),
+        }
         return analyses
 
-    def generate_visualizations(self, analyses):
-        """Create visualizations with error handling"""
-        plt.figure(figsize=(15, 5))
-        plt.subplots_adjust(wspace=0.3)
+    def _compute_correlations(self) -> Dict[str, Any]:
+        """
+        Compute advanced correlation metrics.
 
-        # Correlation Heatmap
-        try:
-            if "correlation" in analyses:
-                plt.subplot(131)
-                corr_matrix = np.array(analyses["correlation"]["matrix"])
-                sns.heatmap(
-                    corr_matrix,
-                    annot=True,
-                    cmap="coolwarm",
-                    linewidths=0.5,
-                    xticklabels=analyses["correlation"]["columns"],
-                    yticklabels=analyses["correlation"]["columns"],
-                )
-                plt.title("Correlation Heatmap")
-        except Exception as e:
-            print(f"Correlation visualization error: {e}")
+        Returns:
+            Correlation analysis results
+        """
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) <= 1:
+            return {"error": "Insufficient numeric columns for correlation analysis"}
 
-        # Clustering Visualization
-        try:
-            if "clustering" in analyses:
-                plt.subplot(132)
-                numeric_data = self.df.select_dtypes(include=[np.number])
-                scaler = StandardScaler()
-                scaled_data = scaler.fit_transform(numeric_data)
-                plt.scatter(
-                    scaled_data[:, 0],
-                    scaled_data[:, 1],
-                    c=analyses["clustering"]["labels"],
-                    cmap="viridis",
-                )
-                plt.title("Clustering Visualization")
-        except Exception as e:
-            print(f"Clustering visualization error: {e}")
+        # Compute multiple correlation matrices
+        pearson_corr = self.df[numeric_cols].corr(method="pearson")
+        spearman_corr = self.df[numeric_cols].corr(method="spearman")
 
-        # PCA Visualization
-        try:
-            if "pca" in analyses:
-                plt.subplot(133)
-                pca_result = np.array(analyses["pca"]["components"])
-                plt.scatter(pca_result[:, 0], pca_result[:, 1])
-                plt.title("PCA Visualization")
-                if "explained_variance" in analyses["pca"]:
-                    var = analyses["pca"]["explained_variance"]
-                    plt.xlabel(f"PC1 ({var[0]:.2%})")
-                    plt.ylabel(f"PC2 ({var[1]:.2%})")
-        except Exception as e:
-            print(f"PCA visualization error: {e}")
+        return {
+            "pearson_correlation": pearson_corr.values.tolist(),
+            "spearman_correlation": spearman_corr.values.tolist(),
+            "columns": list(numeric_cols),
+        }
 
-        # Save the visualization in the output folder
-        visualization_path = os.path.join(
-            self.output_folder, "analysis_visualizations.png"
-        )
-        plt.tight_layout()
-        plt.savefig(visualization_path, dpi=300)
-        plt.close()
+    def _compute_feature_importance(self) -> Dict[str, float]:
+        """
+        Compute feature importance using mutual information.
 
-    # def generate_narrative(self, data_summary, analyses):
-    #     """Generate a narrative based on data analysis"""
-    #     try:
-    #         # Create a markdown narrative based on available data
-    #         narrative = f"""# Data Analysis Report for {os.path.basename(self.csv_path)}
+        Returns:
+            Dict of feature importance scores
+        """
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) <= 1:
+            return {"error": "Insufficient numeric columns for feature importance"}
 
-    #         ## Dataset Overview
-    #         - **Total Rows**: {data_summary.get('total_rows', 'N/A')}
-    #         - **Columns**: {', '.join(data_summary.get('columns', []))}
+        # Use a reference column (last column) as target
+        target = numeric_cols[-1]
+        features = numeric_cols[:-1]
 
-    #         ## Data Composition
-    #         ### Column Types
-    #         {json.dumps(data_summary.get('column_types', {}), indent=2)}
+        X = self.df[features]
+        y = self.df[target]
 
-    #         ### Missing Values
-    #         {json.dumps(data_summary.get('missing_values', {}), indent=2)}
+        # Compute mutual information
+        importances = mutual_info_regression(X, y)
+        return dict(zip(features, importances))
 
-    #         ## Analysis Insights
-    #         ### Numeric Summary
-    #         {json.dumps(data_summary.get('numeric_summary', {}), indent=2)}
+    def _perform_clustering(self) -> Dict[str, Any]:
+        """
+        Advanced clustering with adaptive techniques.
 
-    #         ### Analysis Results
-    #         {json.dumps(analyses, indent=2)}
+        Returns:
+            Clustering analysis results
+        """
+        numeric_data = self.df.select_dtypes(include=[np.number])
+        if len(numeric_data.columns) <= 1:
+            return {"error": "Insufficient numeric columns for clustering"}
 
-    #         ## Key Observations
-    #         - This report provides an automated analysis of the dataset.
-    #         - Visualizations are available in the accompanying PNG file.
-    #         - For detailed insights, please review the statistical summaries.
-    #         """
+        # Scale data robustly
+        scaler = RobustScaler()
+        scaled_data = scaler.fit_transform(numeric_data)
 
-    #         # Save narrative in the output folder
-    #         readme_path = os.path.join(self.output_folder, "README.md")
-    #         with open(readme_path, "w", encoding="utf-8") as f:
-    #             f.write(narrative)
+        # Adaptive clustering: DBSCAN for adaptive cluster detection
+        dbscan = DBSCAN(eps=0.5, min_samples=max(2, len(scaled_data) // 10))
+        cluster_labels = dbscan.fit_predict(scaled_data)
 
-    #         print(f"Narrative generated in {readme_path}")
+        return {
+            "labels": cluster_labels.tolist(),
+            "n_clusters": len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0),
+            "columns": list(numeric_data.columns),
+        }
 
-    #     except Exception as e:
-    #         error_message = f"""# Analysis Report
+    def _compute_dimensionality_reduction(self) -> Dict[str, Any]:
+        """
+        Advanced dimensionality reduction with comprehensive insights.
 
-    #         ## Error Generating Narrative
-
-    #         An error occurred during narrative generation:
-    #         ### Data Summary
-    #         {json.dumps(data_summary, indent=2)}
-
-    #         ### Analyses
-    #         {json.dumps(analyses, indent=2)}
-    #         """
-
-    #         # Save error narrative in the output folder
-    #         readme_path = os.path.join(self.output_folder, "README.md")
-    #         with open(readme_path, "w", encoding="utf-8") as f:
-    #             f.write(error_message)
-
-    #         print(f"Narrative generation failed: {e}")
-
-    def generate_narrative(self, data_summary, analyses):
-        """Generate a comprehensive, deeply insightful narrative based on data analysis"""
-        try:
-            # Comprehensive Data Profiling
-            column_count = len(data_summary.get("columns", []))
-            total_rows = data_summary.get("total_rows", "N/A")
-
-            # Sophisticated Column Classification
-            column_types = data_summary.get("column_types", {})
-            numeric_cols = [
-                col
-                for col, dtype in column_types.items()
-                if "int" in str(dtype).lower() or "float" in str(dtype).lower()
-            ]
-            categorical_cols = [
-                col
-                for col, dtype in column_types.items()
-                if "object" in str(dtype).lower()
-            ]
-            datetime_cols = [
-                col
-                for col, dtype in column_types.items()
-                if "datetime" in str(dtype).lower()
-            ]
-
-            # Advanced Missing Data Analysis
-            missing_values = data_summary.get("missing_values", {})
-            missing_columns = [
-                col for col, count in missing_values.items() if count > 0
-            ]
-            missing_percentage = {
-                col: round(missing_values[col] / total_rows * 100, 2)
-                for col in missing_columns
+        Returns:
+            PCA and t-SNE reduction results
+        """
+        numeric_data = self.df.select_dtypes(include=[np.number])
+        if len(numeric_data.columns) <= 1:
+            return {
+                "error": "Insufficient numeric columns for dimensionality reduction"
             }
 
-            # Correlation Deep Dive
-            correlation_insights = ""
-            correlation_details = []
-            if "correlation" in analyses and "matrix" in analyses["correlation"]:
-                correlation_matrix = analyses["correlation"]["matrix"]
-                corr_columns = analyses["correlation"]["columns"]
+        # Scale data
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(numeric_data)
 
-                # Comprehensive correlation analysis
-                for i in range(len(corr_columns)):
-                    for j in range(i + 1, len(corr_columns)):
-                        correlation = correlation_matrix[i][j]
-                        if abs(correlation) > 0.5:  # Significant correlation threshold
-                            correlation_type = (
-                                "Strong Positive"
-                                if correlation > 0.8
-                                else (
-                                    "Moderate Positive"
-                                    if correlation > 0.5
-                                    else (
-                                        "Strong Negative"
-                                        if correlation < -0.8
-                                        else "Moderate Negative"
-                                    )
-                                )
-                            )
-                            correlation_details.append(
-                                {
-                                    "col1": corr_columns[i],
-                                    "col2": corr_columns[j],
-                                    "correlation": correlation,
-                                    "type": correlation_type,
-                                }
-                            )
+        # PCA
+        pca = PCA(n_components=min(2, len(numeric_data.columns)))
+        pca_result = pca.fit_transform(scaled_data)
 
-                # Sort correlations by absolute strength
-                correlation_details.sort(
-                    key=lambda x: abs(x["correlation"]), reverse=True
-                )
+        return {
+            "pca_components": pca_result.tolist(),
+            "explained_variance": pca.explained_variance_ratio_.tolist(),
+            "columns": list(numeric_data.columns),
+        }
 
-                # Generate correlation narrative
-                correlation_insights = "### Correlation Analysis\n"
-                for detail in correlation_details[:5]:  # Top 5 correlations
-                    correlation_insights += (
-                        f"- **{detail['col1']}** and **{detail['col2']}**: "
-                        f"{detail['type']} correlation (r = {detail['correlation']:.2f})\n"
-                    )
+    def generate_advanced_visualizations(
+        self, summary: Dict[str, Any], analyses: Dict[str, Any]
+    ):
+        """
+        Create comprehensive, informative visualizations.
 
-            # Clustering Insights
-            clustering_insights = ""
-            if "clustering" in analyses:
-                cluster_labels = analyses["clustering"]["labels"]
-                n_clusters = len(set(cluster_labels))
-                cluster_distribution = {}
-                for label in set(cluster_labels):
-                    cluster_distribution[label] = cluster_labels.count(label)
+        Args:
+            summary (Dict): Dataset summary
+            analyses (Dict): Analysis results
+        """
+        plt.figure(figsize=(20, 15))
+        plt.subplots_adjust(hspace=0.4, wspace=0.3)
 
-                clustering_insights = "### Advanced Clustering Analysis\n"
-                clustering_insights += (
-                    f"- Identified {n_clusters} distinct data clusters\n"
-                )
-                clustering_insights += "- Cluster Distribution:\n"
-                for cluster, count in cluster_distribution.items():
-                    percentage = round(count / len(cluster_labels) * 100, 2)
-                    clustering_insights += (
-                        f"  * Cluster {cluster}: {count} data points ({percentage}%)\n"
-                    )
+        # Color palette for consistent visualization
+        palette = sns.color_palette("coolwarm", as_cmap=True)
 
-            # PCA Advanced Analysis
-            pca_insights = ""
-            if "pca" in analyses:
-                explained_variance = analyses["pca"].get("explained_variance", [])
-                if explained_variance:
-                    pca_insights = "### Dimensionality Reduction (PCA) Insights\n"
-                    cumulative_variance = 0
-                    for i, variance in enumerate(explained_variance, 1):
-                        cumulative_variance += variance
-                        pca_insights += (
-                            f"- Principal Component {i}: "
-                            f"Explains {variance*100:.2f}% of variance\n"
+        # 1. Correlation Heatmap (Improved)
+        plt.subplot(2, 3, 1)
+        if (
+            "correlation" in analyses
+            and "pearson_correlation" in analyses["correlation"]
+        ):
+            corr_matrix = np.array(analyses["correlation"]["pearson_correlation"])
+            columns = analyses["correlation"]["columns"]
+
+            sns.heatmap(
+                corr_matrix,
+                annot=True,
+                cmap=palette,
+                linewidths=0.5,
+                fmt=".2f",
+                square=True,
+                cbar_kws={"shrink": 0.8},
+                xticklabels=columns,
+                yticklabels=columns,
+            )
+            plt.title("Pearson Correlation Heatmap", fontsize=10)
+            plt.tight_layout()
+
+        # 2. Feature Importance
+        plt.subplot(2, 3, 2)
+        if "feature_importance" in analyses:
+            features = list(analyses["feature_importance"].keys())
+            importances = list(analyses["feature_importance"].values())
+
+            plt.bar(
+                features, importances, color=palette(np.linspace(0, 1, len(features)))
+            )
+            plt.title("Feature Importance", fontsize=10)
+            plt.xticks(rotation=45, ha="right")
+            plt.tight_layout()
+
+        # 3. Clustering Visualization
+        plt.subplot(2, 3, 3)
+        if "clustering" in analyses and "labels" in analyses["clustering"]:
+            cluster_data = analyses["dimensionality_reduction"]["pca_components"]
+            cluster_labels = analyses["clustering"]["labels"]
+
+            scatter = plt.scatter(
+                [point[0] for point in cluster_data],
+                [point[1] for point in cluster_data],
+                c=cluster_labels,
+                cmap="viridis",
+                alpha=0.7,
+            )
+            plt.colorbar(scatter, label="Cluster")
+            plt.title("Clustering Visualization", fontsize=10)
+            plt.xlabel("PCA Component 1")
+            plt.ylabel("PCA Component 2")
+            plt.tight_layout()
+
+        # 4. Distribution of Numeric Columns
+        plt.subplot(2, 3, 4)
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            sns.boxplot(data=self.df[numeric_cols], palette=palette)
+            plt.title("Numeric Columns Distribution", fontsize=10)
+            plt.xticks(rotation=45, ha="right")
+            plt.tight_layout()
+
+        # 5. Missing Data Visualization
+        plt.subplot(2, 3, 5)
+        missing_data = self.df.isnull().sum()
+        missing_data = missing_data[missing_data > 0]
+
+        if len(missing_data) > 0:
+            missing_data.plot(kind="bar", color=palette(0.5))
+            plt.title("Missing Data per Column", fontsize=10)
+            plt.xticks(rotation=45, ha="right")
+            plt.tight_layout()
+
+        # 6. PCA Variance Explained
+        plt.subplot(2, 3, 6)
+        if "dimensionality_reduction" in analyses:
+            variance_ratio = analyses["dimensionality_reduction"]["explained_variance"]
+            plt.bar(
+                range(1, len(variance_ratio) + 1),
+                variance_ratio,
+                color=palette(np.linspace(0, 1, len(variance_ratio))),
+            )
+            plt.title("PCA: Variance Explained", fontsize=10)
+            plt.xlabel("Principal Components")
+            plt.ylabel("Variance Ratio")
+            plt.tight_layout()
+
+        # Save the visualization
+        visualization_path = os.path.join(
+            self.output_folder, "advanced_analysis_visualization.png"
+        )
+        plt.savefig(visualization_path, dpi=300, bbox_inches="tight")
+        plt.close()
+
+    def generate_comprehensive_narrative(
+        self, summary: Dict[str, Any], analyses: Dict[str, Any]
+    ) -> str:
+        """
+        Generate a sophisticated, insights-driven narrative report.
+
+        Args:
+            summary (Dict): Dataset summary
+            analyses (Dict): Analysis results
+
+        Returns:
+            str: Comprehensive markdown narrative
+        """
+
+        def format_numeric(value, precision=2):
+            """Helper to format numeric values consistently."""
+            return round(value, precision) if isinstance(value, (int, float)) else value
+
+        # Dataset Overview
+        metadata = summary.get("metadata", {})
+        column_analysis = summary.get("column_analysis", {})
+
+        # Correlation Insights
+        correlation_insights = ""
+        if "correlation" in analyses:
+            corr_columns = analyses["correlation"]["columns"]
+            pearson_corr = np.array(analyses["correlation"]["pearson_correlation"])
+
+            # Find top significant correlations
+            significant_correlations = []
+            for i in range(len(corr_columns)):
+                for j in range(i + 1, len(corr_columns)):
+                    if abs(pearson_corr[i][j]) > 0.5:
+                        significant_correlations.append(
+                            {
+                                "col1": corr_columns[i],
+                                "col2": corr_columns[j],
+                                "correlation": pearson_corr[i][j],
+                            }
                         )
-                    pca_insights += f"- Cumulative Variance Explained: {cumulative_variance*100:.2f}%\n"
 
-            # Numeric Summary Deep Dive
-            numeric_summary_insights = ""
-            numeric_summary = data_summary.get("numeric_summary", {})
-            if numeric_summary:
-                numeric_summary_insights = "### Comprehensive Numeric Analysis\n"
-                for col, stats in numeric_summary.items():
-                    # Identify distributions and outlier potential
-                    iqr = stats["max"] - stats["min"]
-                    std_dev = stats["std"]
-                    outlier_potential = (
-                        "Low"
-                        if std_dev < iqr * 0.5
-                        else "Moderate" if std_dev < iqr else "High"
-                    )
+            # Sort correlations by absolute value
+            significant_correlations.sort(
+                key=lambda x: abs(x["correlation"]), reverse=True
+            )
 
-                    numeric_summary_insights += (
-                        f"#### {col} Statistical Profile\n"
-                        f"- **Central Tendency**: Mean = {stats['mean']:.2f}, Median = {stats['median']:.2f}\n"
-                        f"- **Variability**: Std Dev = {std_dev:.2f}, Range = {stats['min']} to {stats['max']}\n"
-                        f"- **Outlier Potential**: {outlier_potential}\n"
-                    )
+            correlation_insights = "### Correlation Analysis\n"
+            for corr in significant_correlations[:5]:
+                correlation_insights += (
+                    f"- **{corr['col1']}** and **{corr['col2']}**: "
+                    f"Correlation of {format_numeric(corr['correlation'])}\n"
+                )
 
-            # Final Narrative Composition
-            narrative = f"""# Comprehensive Data Analysis Report for {os.path.basename(self.csv_path)}
+        # Clustering Insights
+        clustering_insights = ""
+        if "clustering" in analyses:
+            n_clusters = analyses["clustering"].get("n_clusters", 0)
+            clustering_insights = f"### Clustering Analysis\n- Identified {n_clusters} distinct data clusters\n"
 
-    ## Dataset Architectural Overview
-    - **Total Records**: {total_rows}
-    - **Columns**: {column_count}
-    * Numeric Columns: {len(numeric_cols)}
-    * Categorical Columns: {len(categorical_cols)}
-    * Datetime Columns: {len(datetime_cols)}
+        # PCA Insights
+        pca_insights = ""
+        if "dimensionality_reduction" in analyses:
+            variance_explained = analyses["dimensionality_reduction"][
+                "explained_variance"
+            ]
+            cumulative_variance = sum(variance_explained)
+            pca_insights = (
+                "### Dimensionality Reduction\n"
+                f"- First {len(variance_explained)} principal components explain "
+                f"{format_numeric(cumulative_variance * 100, 2)}% of total variance\n"
+            )
 
-    ## Data Integrity Assessment
-    ### Missing Data Analysis
-    {chr(10).join(f"- **{col}**: {missing_values[col]} missing entries ({missing_percentage[col]}%)" for col in missing_columns) if missing_columns else "- No missing values detected"}
+        # Comprehensive Narrative
+        narrative = f"""# Comprehensive Data Analysis Report
 
-    {numeric_summary_insights}
+## Dataset Overview
+- **Total Records**: {metadata.get('total_rows', 'N/A')}
+- **Total Columns**: {metadata.get('total_columns', 'N/A')}
+- **Source**: {metadata.get('file_path', 'Unknown')}
 
-    {correlation_insights}
+## Data Composition
+{correlation_insights}
 
-    {clustering_insights}
+{clustering_insights}
 
-    {pca_insights}
+{pca_insights}
 
-    ## Strategic Insights and Recommendations
-    - Automated analysis reveals complex data characteristics
-    - Significant correlations and clustering patterns identified
-    - Visualizations available in analysis_visualizations.png
-    - Recommended next steps:
-    1. Validate key correlations with domain expertise
-    2. Investigate clusters for potential subgroup analysis
-    3. Consider feature engineering based on PCA insights
-    4. Address missing data if impactful to analysis
+## Strategic Recommendations
+1. Validate key correlations with domain expertise
+2. Investigate clusters for potential subgroup analysis
+3. Consider feature engineering based on correlation and PCA insights
 
-    **Interpretative Note**: Algorithmic insights provide a starting point. Domain-specific validation is crucial for comprehensive understanding.
-    """
+**Note**: This analysis provides algorithmic insights. Domain-specific validation is crucial for comprehensive understanding.
+"""
 
-            # Save and output
-            readme_path = os.path.join(self.output_folder, "README.md")
-            with open(readme_path, "w", encoding="utf-8") as f:
-                f.write(narrative)
+        # Save narrative
+        narrative_path = os.path.join(self.output_folder, "comprehensive_analysis.md")
+        with open(narrative_path, "w", encoding="utf-8") as f:
+            f.write(narrative)
 
-            print(f"Ultra-detailed narrative generated in {readme_path}")
-
-        except Exception as e:
-            error_message = f"""# Analysis Report Generation Failed
-
-    ## Critical Error Details
-    - Error: {str(e)}
-    - Traceback: {traceback.format_exc()}
-
-    ### Available Data Snapshot
-    - Data Summary: {json.dumps(data_summary, indent=2)}
-    - Analyses: {json.dumps(analyses, indent=2)}
-    """
-            # Save error narrative
-            readme_path = os.path.join(self.output_folder, "README.md")
-            with open(readme_path, "w", encoding="utf-8") as f:
-                f.write(error_message)
-
-            print(f"Narrative generation encountered a critical error: {e}")
+        return narrative
 
 
 def main(csv_path):
+    """
+    Main execution function for the Autolysis data analysis tool.
+
+    Args:
+        csv_path (str): Path to input CSV file
+    """
     try:
+        # Initialize analyzer
         analyzer = DataAnalyzer(csv_path)
-        data_summary = analyzer.generate_data_summary()
-        analyses = analyzer.perform_analysis()
-        analyzer.generate_visualizations(analyses)
-        analyzer.generate_narrative(data_summary, analyses)
-        print(f"Analysis complete. Check {analyzer.output_folder} folder.")
+
+        # Generate comprehensive summary
+        summary = analyzer.generate_advanced_summary()
+
+        # Perform advanced analysis
+        analyses = analyzer.perform_advanced_analysis()
+
+        # Generate visualizations
+        analyzer.generate_advanced_visualizations(summary, analyses)
+
+        # Generate narrative report
+        analyzer.generate_comprehensive_narrative(summary, analyses)
+
+        print(f"Analysis complete. Check {analyzer.output_folder} for results.")
+
     except Exception as e:
-        print(f"Comprehensive error during analysis:")
-        print(traceback.format_exc())
+        print(f"Analysis failed: {e}")
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
