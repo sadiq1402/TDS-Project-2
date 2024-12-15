@@ -1,12 +1,6 @@
 # ///script
 
-# Dependencies = [
-#     "pandas",
-#     "numpy",
-#     "scikit-learn",
-#     "seaborn",
-#     "matplotlib"
-#     ]
+Dependencies = ["pandas", "numpy", "scikit-learn", "seaborn", "matplotlib"]
 # ///
 
 import os
