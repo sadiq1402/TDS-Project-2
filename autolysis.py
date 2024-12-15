@@ -1,3 +1,5 @@
+dependencies = ["numpy", "seaborn", "matplotlib", "scikit-learn", "requests", "openai"]
+
 import os
 import pandas as pd
 import numpy as np
@@ -8,8 +10,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import requests
 import json
-import openai
-from datetime import datetime
 
 
 class DataAnalyzer:
