@@ -6,10 +6,9 @@
 #   "matplotlib",
 #   "numpy",
 #   "scipy",
-#   "openai",
 #   "scikit-learn",
 #   "requests",
-#   "ipykernel",  # Added ipykernel
+#   "ipykernel",
 # ]
 # ///
 
@@ -18,10 +17,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-import argparse
 import requests
 import json
-import openai  # Make sure you install this library: pip install openai
 
 
 # Function to analyze the data (basic summary stats, missing values, correlation matrix)
