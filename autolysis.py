@@ -22,108 +22,81 @@ import json
 
 
 class DataAnalyzer:
-    def __init__(self, csv_file):
-        """
-        Initialize the DataAnalyzer with a CSV file.
-
-        :param csv_file: Path to the CSV file to be analyzed
-        """
+    def __init__(self, csv_file, output_dir="."):
         self.csv_file = csv_file
+        self.output_dir = output_dir
         self.df = None
         self.summary_stats = None
         self.missing_values = None
         self.corr_matrix = None
         self.outliers = None
-        self.output_dir = "."
-        os.makedirs(self.output_dir, exist_ok=True)
 
     def load_data(self):
-        """
-        Load the CSV file with ISO-8859-1 encoding.
-        """
+        print("Loading dataset...")
         try:
             self.df = pd.read_csv(self.csv_file, encoding="ISO-8859-1")
             print("Dataset loaded successfully!")
-            return self.df
         except UnicodeDecodeError as e:
             print(f"Error reading file: {e}")
-            return None
+            raise
 
     # Function to analyze the data (basic summary stats, missing values, correlation matrix)
-    def analyze_data(df):
-        print("Analyzing the data...")  # Debugging line
-        # Summary statistics for numerical columns
-        summary_stats = df.describe()
-
-        # Check for missing values
-        missing_values = df.isnull().sum()
-
-        # Select only numeric columns for correlation matrix
-        numeric_df = df.select_dtypes(include=[np.number])
-
-        # Correlation matrix for numerical columns
-        corr_matrix = numeric_df.corr() if not numeric_df.empty else pd.DataFrame()
-
-        print("Data analysis complete.")  # Debugging line
-        return summary_stats, missing_values, corr_matrix
+    def analyze_data(self):
+        print("Analyzing the data...")
+        self.summary_stats = self.df.describe()
+        self.missing_values = self.df.isnull().sum()
+        numeric_df = self.df.select_dtypes(include=[np.number])
+        self.corr_matrix = numeric_df.corr() if not numeric_df.empty else pd.DataFrame()
+        print("Data analysis complete.")
 
     # Function to detect outliers using the IQR method
-    def detect_outliers(df):
-        print("Detecting outliers...")  # Debugging line
-        # Select only numeric columns
-        df_numeric = df.select_dtypes(include=[np.number])
-
-        # Apply the IQR method to find outliers in the numeric columns
+    def detect_outliers(self):
+        print("Detecting outliers...")
+        df_numeric = self.df.select_dtypes(include=[np.number])
         Q1 = df_numeric.quantile(0.25)
         Q3 = df_numeric.quantile(0.75)
         IQR = Q3 - Q1
-        outliers = (
+        self.outliers = (
             (df_numeric < (Q1 - 1.5 * IQR)) | (df_numeric > (Q3 + 1.5 * IQR))
         ).sum()
-
-        print("Outliers detection complete.")  # Debugging line
-        return outliers
+        print("Outliers detection complete.")
 
     # Function to generate visualizations (correlation heatmap, outliers plot, and distribution plot)
-    def visualize_data(corr_matrix, outliers, df, output_dir):
-        print("Generating visualizations...")  # Debugging line
-        # Generate a heatmap for the correlation matrix
+    def visualize_data(self):
+        print("Generating visualizations...")
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        heatmap_file = os.path.join(self.output_dir, "correlation_matrix.png")
         plt.figure(figsize=(10, 8))
-        sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
+        sns.heatmap(
+            self.corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5
+        )
         plt.title("Correlation Matrix")
-        heatmap_file = os.path.join(output_dir, "correlation_matrix.png")
         plt.savefig(heatmap_file)
         plt.close()
 
-        # Check if there are outliers to plot
-        if not outliers.empty and outliers.sum() > 0:
-            # Plot the outliers
+        outliers_file = None
+        if not self.outliers.empty and self.outliers.sum() > 0:
+            outliers_file = os.path.join(self.output_dir, "outliers.png")
             plt.figure(figsize=(10, 6))
-            outliers.plot(kind="bar", color="red")
+            self.outliers.plot(kind="bar", color="red")
             plt.title("Outliers Detection")
             plt.xlabel("Columns")
             plt.ylabel("Number of Outliers")
-            outliers_file = os.path.join(output_dir, "outliers.png")
             plt.savefig(outliers_file)
             plt.close()
-        else:
-            print("No outliers detected to visualize.")
-            outliers_file = None  # No file created for outliers
 
-        # Generate a distribution plot for the first numeric column
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        dist_plot_file = None
+        numeric_columns = self.df.select_dtypes(include=[np.number]).columns
         if len(numeric_columns) > 0:
-            first_numeric_column = numeric_columns[0]  # Get the first numeric column
+            dist_plot_file = os.path.join(self.output_dir, "distribution_.png")
             plt.figure(figsize=(10, 6))
-            sns.histplot(df[first_numeric_column], kde=True, color="blue", bins=30)
-            plt.title(f"Distribution")
-            dist_plot_file = os.path.join(output_dir, f"distribution_.png")
+            sns.histplot(self.df[numeric_columns[0]], kde=True, color="blue", bins=30)
+            plt.title("Distribution")
             plt.savefig(dist_plot_file)
             plt.close()
-        else:
-            dist_plot_file = None  # No numeric columns to plot
 
-        print("Visualizations generated.")  # Debugging line
+        print("Visualizations generated.")
         return heatmap_file, outliers_file, dist_plot_file
 
     # Function to create the README.md with a narrative and visualizations
@@ -248,61 +221,6 @@ class DataAnalyzer:
             print(f"Error writing to README.md: {e}")
             return None
 
-    def generate_story(self):
-        """
-        Generate a narrative story based on the data analysis.
-
-        :return: Generated story text
-        """
-        context = f"""
-            Dataset Analysis:
-            Summary Statistics:
-            {self.summary_stats}
-
-            Missing Values:
-            {self.missing_values}
-
-            Correlation Matrix:
-            {self.corr_matrix}
-
-            Outliers:
-            {self.outliers}
-            """
-
-        return question_llm(
-            "Generate a nice and creative story from the analysis", context=context
-        )
-
-    def run_analysis(self):
-        """
-        Run the complete data analysis workflow.
-        """
-        # Load data
-        if not self.load_data():
-            return
-
-        # Perform analysis steps
-        self.analyze_data()
-        self.detect_outliers()
-        self.visualize_data()
-
-        # Create README and generate story
-        readme_file = self.create_readme()
-        if readme_file:
-            story = self.generate_story()
-
-            # Append story to README
-            try:
-                with open(readme_file, "a") as f:
-                    f.write("\n## Story\n")
-                    f.write(f"{story}\n")
-
-                print(
-                    f"Analysis complete! Results saved in '{self.output_dir}' directory."
-                )
-            except Exception as e:
-                print(f"Error appending story to README.md: {e}")
-
     def question_llm(prompt, context):
         # Function to generate a detailed story using the new OpenAI API through the proxy
         print("Generating story using LLM...")  # Debugging line
@@ -365,88 +283,21 @@ class DataAnalyzer:
             print(f"Error: {e}")
             return "Failed to generate story."
 
-
-# Main function that integrates all the steps
-# def main(csv_file):
-#     print("Starting the analysis...")  # Debugging line
-
-#     # Set the API token as an environment variable
-
-#     # Try reading the CSV file with 'ISO-8859-1' encoding to handle special characters
-#     try:
-#         df = pd.read_csv(csv_file, encoding="ISO-8859-1")
-#         print("Dataset loaded successfully!")  # Debugging line
-#     except UnicodeDecodeError as e:
-#         print(f"Error reading file: {e}")
-#         return
-
-#     summary_stats, missing_values, corr_matrix = analyze_data(df)
-
-#     # Debugging print
-#     print("Summary Stats:")
-#     print(summary_stats)
-
-#     outliers = detect_outliers(df)
-
-#     # Debugging print
-#     print("Outliers detected:")
-#     print(outliers)
-
-#     output_dir = "."
-#     os.makedirs(output_dir, exist_ok=True)
-
-#     # Visualize the data and check output paths
-#     heatmap_file, outliers_file, dist_plot_file = visualize_data(
-#         corr_matrix, outliers, df, output_dir
-#     )
-
-#     print("Visualizations saved.")
-
-#     # Generate the story using the LLM
-#     story = question_llm(
-#         "Generate a nice and creative story from the analysis",
-#         context=f"Dataset Analysis:\nSummary Statistics:\n{summary_stats}\n\nMissing Values:\n{missing_values}\n\nCorrelation Matrix:\n{corr_matrix}\n\nOutliers:\n{outliers}",
-#     )
-
-#     # Create the README file with the analysis and the story
-#     readme_file = create_readme(
-#         summary_stats, missing_values, corr_matrix, outliers, output_dir
-#     )
-#     if readme_file:
-#         try:
-#             # Append the story to the README.md file
-#             with open(readme_file, "a") as f:
-#                 f.write("## Story\n")
-#                 f.write(f"{story}\n")
-
-#             print(f"Analysis complete! Results saved in '{output_dir}' directory.")
-#             print(f"README file: {readme_file}")
-#             print(f"Visualizations: {heatmap_file}, {outliers_file}, {dist_plot_file}")
-#         except Exception as e:
-#             print(f"Error appending story to README.md: {e}")
-#     else:
-#         print("Error generating the README.md file.")
-
-
-# if __name__ == "__main__":
-#     import sys
-
-#     if len(sys.argv) < 2:
-#         print("Usage: uv run autolysis.py <dataset_path>")
-#         sys.exit(1)
-#     main(sys.argv[1])
-
-
-def main():
-    import sys
-
-    if len(sys.argv) < 2:
-        print("Usage: uv run autolysis.py <dataset_path>")
-        sys.exit(1)
-
-    analyzer = DataAnalyzer(sys.argv[1])
-    analyzer.run_analysis()
+    def run(self):
+        self.load_data()
+        self.analyze_data()
+        self.detect_outliers()
+        heatmap_file, outliers_file, dist_plot_file = self.visualize_data()
+        self.create_readme(heatmap_file, outliers_file, dist_plot_file)
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python autolysis.py <dataset_path>")
+        sys.exit(1)
+
+    csv_file = sys.argv[1]
+    analyzer = DataAnalyzer(csv_file)
+    analyzer.run()
